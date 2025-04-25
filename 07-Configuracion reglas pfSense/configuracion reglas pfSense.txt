@@ -1,0 +1,38 @@
+1. La primera regla que vamos a agregar será en la interfaz WAN. Para eso vamos a Firewall -> Rules y daremos click and "Add" (no importa si Add hacia arriba o hacia abajo, la regla se incorporará debajo de las que que vienen por default en pfSense).
+
+2. Una vez dentro de la creación de la regla, los parámetros serán:
+
+- Action = Pass
+- Interface = WAN
+- Address Family = IPv4
+- Protocol = TCP/UDP
+- Source = Any
+- Destination = Any. Y debemos aclarar el puerto, que en este caso será el 53 (del protocol DNS).
+
+3. Una vez terminado, damos en Save y Apply Changes.
+
+4. Ahora configuraremos las reglas de la interfaz LAN. Primero, vamos a la pestaña de LAN y, como en con WAN, damos click en "Add" (da igual cual, luego ubicaremos las reglas). La primera regla a crear será con estos parámetros:
+
+- Action = Pass
+- Interface = LAN
+- Address Family = IPv4
+- Protocol = TCP/UDP
+- Source = Network. Y debemos aclarar que red será nuestra fuente, en mí caso 192.168.60.1/24
+- Destination = Any. Y debemos aclarar el puerto, que en este caso será el 53 (del protocol DNS).
+
+Con esta regla permitiremos que la LAN pueda alimentar con internet a cualquier host que se comunique con esta red.
+
+5. La segunda regla en LAN será con estos parámetros:
+
+- Action = Blocl
+- Interface = LAN
+- Address Family = IPv4
+- Protocol = Any
+- Source = Network. Seleccionamos como IP source la IP de nuestra red, en mí caso 192.168.60.1/24
+- Destination = Network. Seleccionamos como IP destination la IP de la red de nuestro hogar o de la PC principal, en mí caso 192.168.1.1/24
+
+Con esta regla evitaremos que nuestra red LAN se pueda comunicar con la red principal de nuestro hogar y así asegurarnos que podamos hacer pruebas en nuestra máquina virtual Kali Linux sin poder provocar algún perjuicio en nuetra PC principal.
+
+6. Las reglas deben ser ubicadas como se muestra en la foto número 4: primero la regla de Pass y luego de Block. La regla por default de pfSense con descripción "Anti-Lockout Rule" siempre quedará primera.
+
+7. Para comprobar que todo funciona correctamente, primero probaremos hacer ping con nuestra red, con el resolver de DNS que deseemos y dig con la web que deseemos. Además, intentaremos hacer ping con nuestra red principal del hogar y, si la regla que creamos funciona correctamente, no deberíamos poder crear una conexión.clear

@@ -1,0 +1,6 @@
+1. En "Configuración" de nuestra máquina virtual pfSense, vamos a la sección "Red". Allí vemos que tenemos hasta 4 adaptadores para habilitar. En nuestro caso, vamos a utilizar 2. El primero (Adaptador 1) ya está habilitado y vamos a dejarlo conectado a la red NAT. En este caso, pfSense tomará internet desde nuestra PC principal. Esta red es la habitual cuando queremos conectar cualquier máquina virtual a internet. 
+
+2. Luego, en Adaptador 2, vamos a habilitarlo y seleccionar Red interna. Se generará una dirección MAC virtual para éste adaptador y esta red será, justamente como su nombre lo indica, una red interna que sólo utilizarán las máquinas virtuales que se conecten a ésta red. Con esto, luego de configurar pfSense con sus reglas correspondientes, evitaremos que la máquina virtual, a menos que lo deseemos, se comunique con la red de nuestra PC principal. En "Modo Promiscuo" debemos seleccionar "Permitir todo".
+
+3. Ahora configuraremos la red en la máquina virtual Kali Linux. En este caso, será más sencillo: sólo debemos habilitar el Adaptador 1 y que esté conectado a la Red interna para que suceda lo detallado en el paso anterior. También en este caso, "Modo Promiscuo" debe estar en "Permitir todo".
+

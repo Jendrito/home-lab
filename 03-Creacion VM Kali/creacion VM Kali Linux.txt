@@ -1,0 +1,18 @@
+1. Ingresamos a https://www.kali.org/get-kali/#kali-platforms y vamos a la sección "Installer Images". 
+
+2. En mí caso, elijo "x86_64" y al dar click sobre "Installer", automáticamente se inicia la descarga de la imagen ISO.
+
+3a. En VirtualBox, vamos a crear una maquina virtual nueva, le damos el nombre deseado, la ruta deseada y elegimos la imagen ISO recientemente descargada.
+3b. En "Tipo" elegimos Linux; en "Subtipo" elegimos Debian; y en "Versión" elegeimos Debian (64-bit)
+3c. En la sección "Hardware", elegimos la memoria base (4096 MB) y cantidad de procesadores (4 cores). Aclaración: si tú computadora lo permite, podés asignar más recursos; en mí caso utilicé lo mínimo para que Kali Linux funcione correctamente.
+3d. En la sección "Disco duro", elegimos "Crear un disco duro virtual ahora" y le asignamos el tamaño deseador (en mí caso 80 GB). En "Tipo y variante de archivo de disco duro", elegimos VDI.
+
+4. Procedemos a iniciar nuestra máquina virtual Kali Linux desde VirtualBox.
+
+5. Una vez iniciado el sistema, eligiremos el idioma, la ubicación, la región del teclado, el nombre de nuestra red, el nombre de dominio, la creación de un usuario no administrativo (el administrativo es kali), contraseña para el nuevo usuario, particionado de discos (en mí caso, no particioné y utilice todo el disco virtual que había asignado al momento de crear la máquina virtual), qué programas instalar (en mí caso, dejé la selección estándar).
+
+6. Luego de toda la instalación correspondiente, nos preguntará si deseamos instalar el cargador de arranque GRUB. Como será nuestro único sistema operativo en este máquina virtual, seleccionamos que si. Nos preguntará en qué dispositivo deseamos instalarlo y seleccionamos la segunda opción (nuestro disco virtual).
+
+7. Una vez terminada la instalación, damos a continuar y, a pesar de que nos sale un mensaje recordandonos que debemos desmontar la imagen ISO para que al reiniciar no comience nuevamente la instalación, Kali Linux lo hará automáticamente por nosotros y aparecerá la pantalla de inicio para entrar al sistema.
+
+8. En versiones anteriores (o al instalar una versión pre configurada para VirtualBox) podíamos acceder al sistema con el usuario "kali" y la contraseña "kali". En nuestro caso, debemos acceder con el usuario y contraseña que creamos durante la instalación.

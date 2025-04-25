@@ -1,0 +1,11 @@
+1. Acceder al sitio oficial: https://www.pfsense.org/download/
+
+2. Una vez que damos click en "Download", nos preguntara qué tipo de imagen queremos descargar: elegimos AMD64 ISO IPMI/Virtual Machine.
+
+3. La añadimos al carrito y procedemos a hacer el checkout (no es necesario pagar nada).
+
+4. Nos pedirá crear una cuenta (y probablemente comprobar el mail antes de seguir con el checkout).
+
+5. Una vez que lleguemos a la instacia de pago, al ser un producto gratuito, no hay que poner datos de ninguna tarjeta. En la sección "Billing Address" no es necesario poner los datos verdaderos. Por último, activamos la opción "By proceeding to checkout..." y completamos la orden.
+
+6. Se preparará la descarga y descargamos el archivo .gz (hay que descomprimirlo una vez descargado).

@@ -1,0 +1,23 @@
+1. Una vez que iniciamos nuestra máquina virtual pfSense, comenzará el booteo de la misma y llegaremos a la primera pantalla, dónde se nos pedidrá aceptar el copyright y licencias.
+
+2. Una vez aceptado, procedemos a instalar y nos pedirá setear nuestra red.
+
+3. Primero, debemos setear nuestra interfaz WAN. Ésta será la que tome internet de la red en nuestra PC principal. Seleccionamos la primera opción (em0). En la siguiente pantalla, procedemos a la instalación (no modificamos ningún ítem).
+
+4. Luego, nos pedirá setear nuestra interfaz LAN. Ésta será la red interna que utilice nuestra máquina virtual Kali Linux. Seleccionamos la segunda opción (em1). En la siguiente pantalla, procemos a la instalación (nuevamente, no modificamos ningún ítem).
+
+5. Nos pedirá confirmar como quedaron asignadas las interfaces y continuamos.
+
+6. En la siguiente pantalla, nos preguntará si queremos validar la opción paga de pfSense, pero como en nuestro caso es la versión gratuita, seleccionamos "Install CE".
+
+7. Una vez más, procedemos a la instalación. Nos preguntará la configuración del dispositivo virtual y elegimos la única opción. Sucederá algo similar con la selección de disco; como en nuestro caso solo asignamos un solo disco en la creación de la máquina virtual, seleccionamos la única opción.
+
+8. Finalmente, nos preguntará si queremos destruir el contenido del disco seleccionado. Como no hay nada en éste disco virtual, procedemos a seleccionar que si y por último nos preguntará qué versión deseamos instalar: seleccionamos la opción "Current Stable Release".
+
+9. Una vez terminada la instalación, damos a OK y debemos desmontar la unidad ISO para que, al reiniciar la máquina virtual, no acceda nuevamente al instalador. Esto lo hacemos yendo a Dispositivos -> Unidades Opticas -> Remove Disk From Virtual Drive. Cuando seleccionamos "Reboot", recién ahí, mientras se reinicia, desmontamos la unidad. En el caso que no lleguemos a hacerlo a tiempo, podemos desmontar la unidad y luego ir a Máquina -> Reiniciar para ahora si bootear la máquina virtual desde la consola de configuración de pfSense.
+
+10. Ya dentro del CLI de pfSense, cuando nos solicite elegir una opción, seleccionamos la 2 "Set Interfaces IP address". Nos solicitará elegir que interfaz vamos a configurar y seleccionamos nuevamente la opción 2 "LAN". Es la red que nos interesa modificar ya que, al ser la red interna, es la que brindará internet a las máquinas virtuales que conectemos a ésta red.
+
+11. Cuando nos el sistema nos pregunte si queremos configurar la interfaz via DHCP (o sea, que le asigne una IP automáticamente), le decimos que no y nos dejará un espacio para elegir la IP que nosotros deseemos. En mí caso elegí 192.168.60.1. Cuando nos pregunté la máscara subnet, seleccionamos el valor deseado. En mí caso, elegí 24. En la siguiente opción damos enter (ya que no estamos configurando la WAN) y nos preguntará si queremos configurar la IPv6 a lo que respondemos que no. Cuando nos pregunté si queremos permitir el server DHCP ahora, elegimos que no (lo configuraremos después en la interfaz gráfica de pfSense). Finalmente, cuando nos pregunte si queremos revertir a HTTP, elegimos que no y ya quedará configurado el valor IP para nuestra LAN. Este valor es el que tipearemos en cualquier browser dentro de Kali Linux para poder acceder a la interfaz gráfica de pfSense y continuar la configuración.
+
+12. Para probar que está llegando internet a nuestra máquina virtual pfSense, podemos realizar las siguientes pruebas. Primero, en la consola de pfSense, seleccionamos la opción 8 para acceder al shell. Luego, tipearemos "ping 8.8.8.8" para hacer una llamada al servidor DNS de Google. Si la respuesta es positiva, tenemos conectividad. También podemos probar con 8.8.4.4. Otra prueba que podemos realizar es, también dentro del shell, tipear dig google.com. Si el resultado es positivo (el status debe ser "NOERROR"), significa que la consulta pudo resolver el nombre de google.com.

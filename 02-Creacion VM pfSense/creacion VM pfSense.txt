@@ -1,0 +1,8 @@
+1. Para crear la máquina virtual que hostee pfSense, usaré Oracle VirtualBox (https://www.virtualbox.org/wiki/Downloads). En mí caso seleccione "Windows hosts" y automáticamente comienza la descarga.
+
+2. Una vez instalado VirtualBox, en la interfaz vamos a "Maquina/Nueva" y procedemos a crear una nueva máquina virtual.
+
+3a. Ya dentro de "Crear máquina virtual", en la sección "Nombre y sistema operativo", le damos el nombre deseado, la ruta de la carpeta dónde se guardará y seleccionamos la Imagen ISO que descargamos en el paso anterior.
+3b. En "Tipo" elegimos BSD; en "Subtipo" elegimos FreeBSD; y en "Versión" elegimos FreeBSD (64-Bit).
+3c. Pasamos a la sección "Hardware" (en la sección "Instalación desatendidad" no tocamos nada) y le damos la memoria base y procesadores deseados. En este caso, como pfSense no demanda muchos recursos, podemos dejar el mínimo de memoria (1024 MB) y el mínimo de procesadores (1 o 2 cores).
+3d. Finalmente, en la sección "Disco duro", elegimos la opción "Crear un disco virtual ahora", elegimos la ubicación (o dejamos la que está por default), le mos 20 GB de tamaño y en "Tipo y variante de archivo de disco duro", elegimos VDI

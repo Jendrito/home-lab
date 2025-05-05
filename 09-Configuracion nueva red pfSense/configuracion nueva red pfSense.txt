@@ -1,0 +1,48 @@
+1. Iniciaremos pfSense para crear una nueva interfaz: recordemos que, previamente, ya habíamos creado la interfaz WAN y la interfaz LAN. Ahora crearemos otra para nuestra red interna "honeypot" y la conoceremos como OPT1, que es el nombre por default que pfSense asigna a las interfaces que no sean WAN ni LAN. Dentro de la consola de, elegimos la opción 1 ("Assign Interfaces") y encontraremos las 3 redes que nuestra máquina virtual pfSense posee: em0 (WAN), em1 (LAN) y em2 (la nueva red creada que será OPT1). Cuando nos pregunta si deseamos configurar las VLANs, respondemos que no. Ahora nos preguntará por la WAN, la LAN y finalmente por nuestra OPT1. Respondemos con el nombre mencionado previamente y finalmente nos preguntará si deseamos proceder y respondemos que si. 
+
+2. Ahora tendremos asignadas las 3 interfaces en pfSense, pero falta asignar una IP a la nueva interfaz OPT1. Para eso vamos a la opción 2 en la consola de pfSense ("Set interfaces IP address") y elegimos la opción 3. Cuando nos pregunte si deseamos configurar via DHCP, respondemos que no; nos pedirá entonces asignar una nueva IP para OPT1: en mí caso elegí 192.168.30.1. Luego asignamos la subnet (24), damos enter sin asignar nada cuando nos pregunte el gateaway y respondemos que no cuando nos pedirá configurar la interfaz con IPv6. De esta manera, ya tendremos las 3 interfaces configuradas en la consola de pfSense.
+
+3. Lo siguiente será configurar la nueva interfaz OPT1 desde la interfaz gráfica de pfSense. Para eso, desde nuestra máquina virtual Kali Linux, entramos a nuestra LAN (en mí caso 192.168.50.1) y vamos a Interfaces en la opciones: allí deberíamos ver que ahora aparece "OPT1" y la seleccionamos. Confirmamos que la interfaz esté activada ("Enable interface") y en "Description" podemos cambiarle el nombre para que nos sea más fácil su identificación (yo elegí "Honeypot"). La opción "IPv4 Configuration Type" debería estar en Static IPv4 y en la dirección ya estará la IP que asignamos antes (en mí caso 192.168.30.1/24). Guardamos y aplicamos los cambios para finalizar este punto.
+
+4. Ahora, para que luego podamos hacer ping desde nuestra máquina virtual Windows 10 a pfSense, configuraremos una regla en Firewall -> Rules -> OPT1 (o el nombre que se haya elegido"). Elegiremos "Add" (es lo mismo si arriba o abajo) y los parámetros serán:
+- Action: Pass
+- Interface: OPT1 (en mi caso "HONEYPOT")
+- Address family: IPv4
+- Protocol: ICMP. Subtypes: Any
+- Source: Network (y elegimos la red. En mí caso 192.168.30.0/24)
+- Destination: This firewall (self)
+Luego guardamos y aplicamos los cambios. Con esto permitiremos que esta máquina virtual solo pueda comunicarse con protocolos ICMP dentro de la red OPT1 y no pueda realizar otra acción por el momento.
+
+5. Si ahora hacemos ping a nuestro servidor (en mí caso 192.168.30.1) desde la consola de Windows, deberíamos obtener una respuesta. Lo mismo si hacemos ping a nuestra IP de Windows (en mí caso 192.168.30.10) desde la consola de pfSense.
+
+6. A continuación, crearemos nuevas reglas en nuestras interfaces LAN y OPT1 para que puedan comunicarse y que, de esta manera, nuestra máquina virtual Kali Linux reciba logs de nuestra máquina virtual Windows 10. Primero, vamos a la interfaz gráfica de pfSense y allí a Firewall -> Rules y elegimos nuestra interfaz LAN. Agregaremos una nueva regla (el"Add" que va para arriba así queda primera) y los parámetros serán:
+- Action: Pass
+- Interface: LAN
+- Address family: IPv4
+- Protocol: Any
+- Source: Network. Y ponemos nuestra red LAN (en mí caso 192.168.50.0/24)
+- Destination: Network. Y ponemos nuestra red LAN (en mí caso 192.168.30.0/24)
+
+Guardamos y aplicamos cambios.
+
+7. Luego, haremos lo mismo pero eligiendo nuestra interfaz OPT1. En mí caso, elijo HONEYPOY y pongo los siguientes parámetros:
+- Action: Pass
+- Interface: HONEYPOT (o el nombre de tú red)
+- Address family: IPv4
+- Protocol: Any
+- Source: Network. Y ponemos nuestra red LAN (en mí caso 192.168.30.0/24)
+- Destination: Network. Y ponemos nuestra red LAN (en mí caso 192.168.50.0/24)
+
+Guardamos y aplicamos cambios.
+
+8. Seguramente cuando queramos hacer ping desde Kali a Windows, es poi¿siuble que aún no podamos hacerlo. Si hacemos ping a la red de OPT1, si funcionara. Por lo tanto, es nuestra máquina virtual Windows 10 que esta bloqueando, en este caso, a la máquina virtual de Kali Linux. Para solucionar este problema, crearemos una nueva regla de entrada en el firewall de Windows. Vamos a "Nueva regla" y elegimos los siguientes parámetros:
+- Tipo de regla: Personalizada
+- Programa: Todos los programas
+- Tipo de protocolo: ICMPv4
+- Direcciones locales: Cualquier direccion IP
+- Direcciones remotas: Nuestra red LAN (en mí caso 192.168.50.0/24)
+- Accion: Permitir la conexion
+- Perfil: Privado
+- Nombre: Permitir ICMP desde Kali
+
+Si ahora hacemos ping desde Kali a Windows, tanto a la red como al host, deberíamos tener éxito. Igualmente debería pasar haciendo ping desde Windows a Kali.

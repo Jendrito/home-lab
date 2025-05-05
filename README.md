@@ -35,6 +35,12 @@ Este repositorio documenta paso a paso la creación del entorno de laboratorio. 
 7. **Reglas del Firewall**  
    Reglas personalizadas en WAN y LAN para asegurar que Kali esté aislada y protegida.
 
+8. **Creación VM Windows**  
+   En este paso se crea una máquina virtual con Windows 10 para simular un host vulnerable y generar tráfico/logs para análisis.
+
+9. **Configuración nueva red pfSense**  
+   Se configura una nueva interfaz en pfSense (OPT1/Honeypot) y se conectan las redes para permitir comunicación controlada entre Kali y Windows.
+
 ---
 
 📁 Cómo usar este repositorio
@@ -43,20 +49,6 @@ Este repositorio está organizado por carpetas, y cada carpeta representa una et
 
 - 📝 Un archivo `.txt` con los pasos detallados  
 - 📸 Screenshots que ilustran cada paso
-
-📂 Estructura del repositorio
-
-home-lab/
-├── 1.Descargar_pfSense/
-│   ├── pasos.txt
-│   └── imagen1.png
-├── 2.Crear_VM_pfSense/
-├── 3.Crear_VM_Kali/
-├── 4.Configuracion_redes/
-├── 5.Configuracion_pfSense_consola/
-├── 6.Configuracion_pfSense_GUI/
-├── 7.Reglas_firewall/
-└── README.md
 
 ---
 

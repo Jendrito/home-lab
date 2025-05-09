@@ -41,6 +41,12 @@ Este repositorio documenta paso a paso la creación del entorno de laboratorio. 
 9. **Configuración nueva red pfSense**  
    Se configura una nueva interfaz en pfSense (OPT1/Honeypot) y se conectan las redes para permitir comunicación controlada entre Kali y Windows.
 
+10. **Fase 1: Crear y configurar servidor Syslog en Kali Linux**
+   Conversión de nuestra máquina Kali Linux en un servidor Syslog utilizando rsyslog, encargado de recibir y procesar logs enviados por la máquina virtual Windows 10 vulnerable.
+
+11. **Fase 2: Envío de logs desde Windows a Kali Linux usando NXlog**
+   Instalacion y configuración de NXLog en Windows 10, verificación de envío de logs desde Windows 10 a Kali Linux y configuracón del servidor para guardar registro en archivos separados.
+
 ---
 
 📁 Cómo usar este repositorio

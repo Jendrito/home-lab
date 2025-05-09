@@ -1,0 +1,35 @@
+1. Crearemos un Syslog en Kali para centralizar todos los logueos de Windows y así poder analizarlos. Pero antes, vamos a configurar pfSense para que envíe sus logs a Kali. Para eso, lo primero será, dentro de la interfaz web de pfSense, ir a Firewall -> Rules y, tanto en LAN como en OPT1, ir regla por regla activando la opción "Log packets that are handled by this rule". Veremos que hay un disclaimer por parte de pfSense de que el espacio es reducido para gestionar logs, pero como eventualmente estos logs irán a nuestro Syslog, no hay inconveniente. En la foto 1 está la opción a activar (recordemos, en todos los logueos de LAN y OPT1) y en la foto 2 cómo debería quedarnos una vez activada esta opción.
+
+2. Una vez hecho esto, podemos realizar ping desde Windows a Kali y viceversa y, para confirmar que el log se esta visibilizando, vamos a Status -> System Logs -> Firewall. Allí podemos filtrar por diferentes parámetros tocando en cada uno para visualizar de forma ascendente o descendente. Por ejemplo, como en nuestro caso hicimos ping, si filtramos por "Protocol" deberíamos ver "ICMP" y constatar que los logs se registran.
+
+3. Ahora procederemos a instalar rsyslog, un software open-source que nos permitirá recolectar los logs de Windows en Linux. Usaremos esta aplicación ya que es ligera y compatible con pfSense. Algunas configuracion de Kali ya lo traen preinstalado; para confirmar si nuestro sistema lo tiene, en una termina de Kali, corremos el comando "sudo systemctl status rsyslog". Si está activo, deberíamos ver algo como la imagen 4 (active (running)). En el caso de que esté instalado pero no corriendo, corremos el comando "sudo systemctl enable rsyslog". Pero si nuestro sistema no tiene rsyslog instalado, lo instalaremos de la siguiente manera:
+3a. Corremos los siguientes comandos:
+
+sudo apt update
+sudo apt install rsyslog -y
+
+El primer comando actualizará la lista de paquetes disponibles que Kali puede actualizar (para eso podemos correr sudo apt upgrade) o descargar, que es lo que sucede con el segundo comando. 
+
+3b. Puede pasar (como sucedió en mi caso) que los repositorios de nuestro sistema estén desactualizados o no tenga las claves GPG correctas. Para eso, correremos el siguiente comando:
+curl -fsSL https://archive.kali.org/archive-key.asc | sudo gpg --dearmor -o /usr/share/keyrings/kali-archive-keyring.gpg
+Una vez hecho esto, correremos un comando para poder actualizar la lista de recursos:
+
+sudo nano /etc/apt/sources.list
+
+Una vez dentro del archivo modificables, buscaremos la primer línea y pondremos lo siguiente (en la foto 5 está claro):
+
+deb [signed-by=/usr/share/keyrings/kali-archive-keyring.gpg] http://http.kali.org/kali kali-rolling main contrib non-free non-free-firmware
+
+Guardamos con Ctrl+O, Enter y cerramos con Ctrl+X. Ahora si, podemos correr los comandos del punto anterior (3a) y deberíamos poder instalar rsyslog sin problemas.
+
+4. Con rsyslog instalado, en la consola corremos el comando sudo nano /etc/rsyslog.conf para poder editar la configuración principial de rsyslog. Lo siguiente será modificar líneas para poder recibir logs remotos de protocolos UDP y TCP. Para esto, buscamos las líneas "provides UDP..." y "provides TCP..." y eliminamos los # para que queden activas (ver foto 6). Con esto, permitiremos que rsyslog escuche el puerto 514 para estos dos protocolos, puerto estándar para Syslog. Guardamos con Ctrl+O, Enter y cerramos con Ctrl+X. Reiniciamos rsyslog con el comando sudo systemctl restart rsyslog y verificamos con el comando sudo netstat -tunlp | grep 514 que rsyslog está escuchando el puerto 514. Aviso: por más que solo veamos "LISTEN" en tcp y tcp6, al ver que también aparece udp y udp6, significa que ambos protocolos están habilitados en el puerto 514.
+
+5. Ahora accedemos a la interfaz web de pfSense e iremos a Status -> System Logs -> Settings, y en la parte final encontraremos la sección de "Remote Logging Options" y dejaremos los parámetros de esta manera:
+
+- Enable Remote Logging
+- Source Address: Default
+- IP Protocol: Ipv4
+- Remote log servers: Nuestra IP de Kali  (en mi caso 192.168.50.20:514)
+- Remote Syslog Contents: Everything
+
+Guardamos y ahora, para verificar que está funcionando, corremos el comando sudo tail -f /var/log/syslog y realizamos alguna acción dentro de la interfaz web de pfSense (por ejemplo, reiniciar el firewall) y deberíamos ver logs que vienen desde la IP de nuestra máquina virtual Kali Linux.

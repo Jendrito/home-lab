@@ -1,0 +1,112 @@
+1. En esta etapa, realizaremos nuevos escaneos con nmap para visualizarlos en Wireshark, pero usaremos comandos más agresivos, similares a los que un atacante podría utilizar durante la fase de reconocimiento. El primero que emplearemos será:
+
+sudo nmap -T4 -A -p- 192.168.30.10
+
+Este comando le indica a nmap que analice todos los puertos del host objetivo (-p-), detecte el sistema operativo, versión de los servicios y realice un traceroute utilizando scripts del motor NSE (Nmap Scripting Engine) (-A), y que lo haga de forma rápida y agresiva (-T4). Respecto a este último parámetro, vale destacar que los niveles de velocidad/agresividad van de 0 a 5: el nivel 0 es ideal para evadir controles pero muy lento, mientras que el 5 es sumamente rápido, aunque fácilmente detectable. Por defecto, nmap opera en el nivel 3.
+
+Una vez que iniciamos la captura de paquetes con Wireshark, ejecutamos el comando anterior. Al escanear todos los puertos, llegarán miles de paquetes, por lo que lo ideal es detener la captura después de unos segundos para que el análisis posterior sea más manejable.
+
+Durante el análisis del tráfico reciente entre Windows y Kali, observé reiteradamente una IP desconocida: 0.0.0.6. Para investigar, utilicé el comando:
+
+sudo netstat -antup
+
+Este comando muestra todas las conexiones TCP y UDP activas (incluidos los puertos en escucha), en formato numérico, junto con el nombre y el PID del proceso asociado. En los resultados (ver Foto 3), noté que el proceso 2943, utilizando el puerto UDP 60266, estaba vinculado a la dirección 0.0.0.0 tanto en el campo local como en el remoto. Esto indica que el servicio estaba escuchando en todas las interfaces disponibles, sin especificar una IP concreta. Por lo tanto, la aparición de 0.0.0.6 en Wireshark podría estar relacionada con esta escucha genérica (también podría haberse mostrado como 0.0.0.4 o 0.0.0.7, por ejemplo).
+
+Para obtener más información sobre el proceso, utilicé:
+
+ps -fp 2943
+
+El resultado (ver Foto 4) reveló que el proceso corresponde a "wsdd", un servicio que implementa el protocolo WS-Discovery (descubrimiento de dispositivos de Windows). Este protocolo permite que las máquinas Linux aparezcan en la red como compartibles en entornos Windows, imitando el comportamiento del servicio SMB. Este servicio se activa automáticamente en algunas distribuciones y puede generar tráfico al ejecutar escaneos como los de nmap. Para evitarlo, puede deshabilitarse con el siguiente comando:
+
+sudo systemctl disable --now wsdd
+
+2. Este primer escaneo con nmap nos permitió ver cómo una gran cantidad de paquetes eran capturados en Wireshark. Al analizarlos, observamos que la mayoría de ellos incluyen la bandera SYN, lo que indica que un host (en este caso, un atacante) está intentando identificar qué puertos están abiertos en el sistema objetivo.
+
+En mi caso, se capturaron cerca de 20.000 paquetes. Un repaso rápido muestra que la IP 192.168.50.20 (la de Kali, aunque podría ser la de cualquier atacante) aparece repetidamente. Para filtrar los paquetes enviados por esta IP, podemos aplicar en Wireshark el siguiente filtro:
+
+ip.src == 192.168.50.20 && tcp.flags.syn == 1
+
+Este filtro nos muestra todos los paquetes SYN enviados por esa IP. De este modo, comprobé que representan más de la mitad del total de paquetes, lo que indica claramente una actividad anómala desde ese host.
+
+Sin embargo, también aparece la IP 0.0.0.6, que ya habíamos identificado. Para afinar más el análisis y enfocarnos en el objetivo real (la VM Windows), aplicamos el siguiente filtro:
+
+ip.src == 192.168.50.20 && ip.dst == 192.168.30.10 && tcp.flags.syn == 1
+
+Con este filtro, la cantidad de paquetes se redujo a aproximadamente el 25% del total. Podría parecer poco, pero al revisar la columna "Time", notamos que casi 5.000 paquetes fueron enviados en menos de 5 segundos, lo que evidencia un escaneo de puertos agresivo.
+
+3a. Vamos a simular otro ataque para luego analizarlo. Esta vez, se trata de un intento de fuerza bruta contra el servicio SSH en el puerto 22 de Windows. Este protocolo permite controlar de forma remota y segura un host.
+
+Antes de continuar, vale aclarar que Windows no trae habilitado el servicio SSH por defecto, por lo que debemos instalar y habilitar el servidor OpenSSH. Aunque anteriormente usamos HTTP para transferir archivos desde Kali, en este caso resulta más práctico usar el adaptador puente en VirtualBox para darle acceso temporal a Internet a la VM Windows, descargar el paquete, y luego volver a aislarla.
+
+Para ello:
+
+En la configuración de la VM Windows, en la sección Red, elegimos Adaptador puente y seleccionamos la tarjeta de red física correspondiente.
+
+Luego, dentro de Windows, debemos configurar el adaptador para que reciba IP automáticamente, ya que la configuración anterior estaba con IP fija (necesaria para trabajar con pfSense).
+
+Aunque la instalación será rápida, es recomendable mantener el firewall activado en esta VM. Una vez que tenemos conexión a Internet, abrimos PowerShell como Administrador y ejecutamos:
+
+Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+
+Luego lo iniciamos y configuramos para que arranque automáticamente:
+
+Start-Service sshd
+Set-Service -Name sshd -StartupType 'Automatic'
+
+Por último, verificamos que el puerto 22 está en escucha con:
+
+netstat -an | findstr :22
+
+Después de esto, volvemos a aislar la VM:
+
+Primero, restauramos la IP fija de nuestra red HONEYPOT en Windows.
+
+Luego, volvemos a cambiar el adaptador en VirtualBox a "red interna" (recordar que está en "HONEYPOT").
+
+Comprobamos la conectividad haciendo ping desde Windows a Kali y viceversa.
+
+3b. Vamos a probar si el ataque funciona tanto con el firewall de Windows activado como desactivado. Comenzamos con el firewall desactivado.
+
+Desde Kali, iniciamos la captura de paquetes y ejecutamos el ataque con Hydra, una herramienta de fuerza bruta que ya viene preinstalada en Kali. Para probarlo, corremos:
+
+hydra -l admin -p /usr/share/dict/wordlist-probable.txt ssh://192.168.30.1 -t 4 -V
+
+Este comando indica:
+
+-l admin: usuario a probar (puede ser "admin", "esteban", etc.).
+
+-p: el diccionario de contraseñas a utilizar.
+
+ssh://192.168.30.10: protocolo y dirección del host a atacar.
+
+-t 4: cantidad de tareas paralelas.
+
+-V: modo verbose para ver detalles del ataque.
+
+Podríamos también usar un diccionario de usuarios con -L para no repetir el comando con cada nombre.
+
+El ataque se ejecuta en muy poco tiempo, lo que puede hacernos pensar que el diccionario es corto. Pero si ejecutamos:
+
+wc-l /usr/share/dict/wordlist-probable.txt
+
+veremos que el archivo contiene más de 20.000 palabras. Entonces, ¿por qué finaliza tan rápido? Porque OpenSSH incluye mecanismos antifuerza bruta que bloquean conexiones tras varios intentos fallidos.
+
+Para verificarlo en Wireshark, usamos el filtro:
+
+ip.addr == 192.168.30.10 && tcp.port == 22
+
+Esto nos mostrará todo el tráfico entre Kali y Windows en el puerto SSH. En la captura (ver Foto 22), observamos el intento completo: desde el SYN inicial hasta el cierre o reseteo de la conexión. En mi caso, Hydra lo intentó dos veces y luego OpenSSH bloqueó los intentos.
+
+Desde Windows, también podemos verificarlo accediendo al Visor de eventos, en Registros de Windows → Seguridad, y filtrando por eventos con "Error de auditoría". Allí veremos referencias a OpenSSH y los intentos fallidos.
+
+3c. Podemos realizar otros análisis en Wireshark para confirmar el ataque. Por ejemplo, al aplicar el filtro anterior, notamos que el tiempo entre intentos de conexión es menor a un segundo, lo cual es sospechoso: un usuario humano no puede hacer tantos intentos tan rápidamente. También, si damos click derecho sobre el primer paquete y seleccionamos "Follow" y luego "TCP Stream", podremos ver la conversación completa entre los dos hosts. Lo importante es detenerse en los banneres del principio (foto 27), dónde podemos ver cliente (rojo) y servidor (azul). Es fácil reconocer el OpenSSH de Windows, pero el cliente demuestra que usó una librería de automatización, algo atípico en un cliente legítimo. Incluso podemos comprobar como se vería una conexión legítima si, volvemos a capturar paquetes en Wireshark y, desde una terminal en Kali, corremos el comando:
+
+ssh esteban@192.168.30.10 (sustituir "esteban" por el usuario de Windows y el IP por el de tu máquina virtual Windows)
+
+Si volvemos a analizar el stream en Wireshark ahora veremos a un cliente distinto al anterior, pero que ya no parece automatizado. Además, veremos paquetes distintos a nuestra captura anterior, lo que confirma una conexión correcta entre cliente y servidor, sin fallos de autenticación.
+
+4. Repetimos el mismo ataque de fuerza bruta con Hydra, pero esta vez con el firewall de Windows activado. Esperábamos que esto impidiera los intentos de conexión al puerto 22, sin embargo, el resultado fue idéntico al de la prueba anterior: Hydra realizó los intentos de conexión y devolvió el mismo output que antes.
+
+En Wireshark, observamos nuevamente una secuencia típica de conexión TCP hacia el puerto 22 del host Windows, con paquetes SYN y respuestas SYN/ACK, seguidos por la negociación SSH. Esto confirma que el tráfico sigue llegando al servicio OpenSSH, a pesar de tener el firewall de Windows activado.
+
+Para comprobar si Windows tiene activa alguna regla que permita la conexión en el puerto 22, vamos a Panel de control -> Sistema y seguridad -> Firewall de Windows Defender -> Configuración avanzada, y en Reglas de entrada, buscamos "Open SSH SSH Server (sshd)" y veremos que en "Permitir". Esto demuestra, como pasó con la cantidad de intentos de conexión permitidos, OpenSSH automáticamente crea esta regla para permitir la entrada en el puerto 22. Podemos comprobar que pasaría con la regla inhabilitada: una vez hecho, volvemos a capturar paquetes en Wireshark y corremos el comando de Hydra. Veremos que en la consola nos dice que no hubo posibilidad de conexión y, filtrando por el puerto 22 en Wireshark, también se ve la imposibilidad de avanzar tras en el envío del primer paquete SYN

@@ -1,0 +1,68 @@
+1. Lo primero que haremos para analizar el tráfico de red entre Windows y Kali Linux, será abrir Wireshark en Kali. Todas las configuraciones de Kali Linux traen ya instalado Wireshark, por lo que si en el cuadro de búsqueda escribimos "wire...", aparecerá el software. También lo podemos encontrar en la sección "Discovery", dentro del menú de herramientas de Kali. Por último, también podemos ejecutarlo desde una terminal con el comando:
+
+sudo wireshark
+
+2. Una vez abierto el programa, en la pantalla de inicio elegimos "eth0", que es la interfaz de nuestra LAN (en mi caso 192.168.50.20). Podemos comprobar esto con el comando:
+
+ip a
+
+A partir de aquí comenzaremos a ver como comienzan a llegar paquetes que tienen como "source" la IP de Windows 10 y "destination" la IP de Kali. Esto se debe a que, como configuramos en pasos previos, Windows está enviando vía NXLog sus logs a Kali Linux que los recibe con rsyslog. Podemos hacer otra prueba de conexión, por ejemplo, haciendo ping desde Windows a Kali (o viceversa), y en la lista de paquetes (en la foto 5 está definido cada panel), podremos ver como se produce la comunicación utilizado el protocolo ICMP entre estas dos máquinas virtuales. 
+
+Hay cuatro botones que vale la pena nombrar antes de seguir: comenzar captura (1), detener captura (2),  reiniciar captura (3) y opciones de captura (4) (ver foto 7). Mientras estemos capturando la interfaz seleccionada, el primer botón estará en color gris, pero al presionar el botón de detener, tendrá un color azul, los que nos indica que no estamos capturando ningún tráfico. También, mientras esté detenida la captura, estará habilitado el botón de opciones de captura, que nos permitirá cambiar de interfaz si lo deseamos. Por último, el botón de reinicio, comenzará a capturar paquetes nuevamente, pero antes nos preguntará si queremos guardar la captura anterior o si continuamos sin guardar (y se pierde toda la captura).
+
+3. Para estas primeras pruebas, utilizaremos Kali como host atacante hacia Windows, el host vulnerable. Lo primero que haremos será hacer un escaneo de puertos (reconocimiento) desde Kali hacia Windows, lo que permitiría a un atacante saber qué puertos y protocolos están abiertos en un host vulnerable. Para esto vamos a usar otra herramienta en Kali Linux llamada nmap, queque permite descubrir qué puertos y servicios están abiertos en un host. Desde una terminal de Kali (abrimos una nueva si ejecutamos Wireshark desde una terminal) vamos a escribir el comando:
+
+nmap 192.168.30.10
+
+Este es el comando básico para comprobar que el host seleccionado (en mi caso, es la IP de Windows) esta activo. Esto lo podemos ver en nuestra terminal (foto 8) e incluso podemos usar el nmap para buscar otro host (ejemplo, 192.168.60.1) y el resultado será distinto (ya que este host no existe, por lo tanto, no está activado). Si vamos a la pantalla de Wireshark, veremos que se fue generando bastante tráfico (sobre todo con el primer comando de escaneo, ya que, por defectp, nmap escanea del puerto 1 al 1024). Para saber más sobre todos los comandos que ofrece nmap, recomiendo buscar en internet "nmap cheatsheet" o visitar la siguiente web: https://www.stationx.net/nmap-cheat-sheet/. Además, con los comandos:
+
+nmap --help
+
+o
+
+man nmap
+
+vamos a poder obtener información sobre nmap directamente desde la terminal.
+
+4. Vamos a probar otros escaneos, como por ejemplo con el comando:
+
+nmap -sS -p 80,445 192.168.30.10
+
+En este caso, le indicamos a nmap que realice un escaneo SYN (-sS, inicio de conexión TCP) hacia los puertos 80 y 445 (-p 80,445) del host 192.168.30.10. Este método es menos intrusivo porque es más específico para nmap y nos permite obtener información más detallada que con el primer comando. En la terminal nos aparecerá que estos puertos estan "filtrados", lo que significa que nmap no pudo determinar si están abiertos o cerrados. Lo mismo sucederá si corremos el comando:
+
+nmap -sS -p 1-1000 192.168.30.10
+
+que le indica a nmap que analice los puertos del 1 al 1000 en el host. El resultado será el mismo: los 1000 puertos filtrados. ¿Por qué es esto? Porque actualmente Windows tiene su firewall activado. Si desactivamos el firewall en Windows 10, volvemos a correr cualquiera de los dos comandos anteriores, y podremos ver en la consola que ahora nos dice cuáles puertos se encuentran abiertos. Los puertos pueden estar abiertos (open), cerrados (closed), filtrados (filtered) y no filtrado (unfiltered).
+
+5. Pasamos ahora a Wireshark, para poder analizar los paquetes que fuimos enviando y recibiendo. Hay que tener en cuenta que tendremos miles de paquetes en el panel a partir de las pruebas que fuimos realizando, pero además porque, como configuramos previamente, llegan a Kali los logs de Windows. Lo mejor entonces será comenzar a utilizar los filtros en Wireshark para poder visualizar mejor qué paquetes queremos analizar. Es importante notar que, cada vez que escribamos algo en la barra de filtro, si no aparece en verde, significa que Wireshark no puede utilizar ese filtro. Por ejemplo, en la barra de filtros escribimos
+
+ip.addr == 192.168.30.10
+
+y nos mostrará todos los paquetes enviados y recibidos por esta IP (en mi caso, la IP de Windows). Nuevamente, esto nos trae muchos paquetes por analizar, entonces podemos ser más específicos y buscar cuando esta IP utilizó protocol ICMP. Para esto escribimos
+
+ip.addr == 192.168.30.10 && icmp
+
+De esta manera Wireshark mostrará todos los paquetes que tenga la IP de Windows y cuando emitió una solicitud de eco.
+
+Wireshark nos brinda una gran ayuda cuando queremos setear un filtro, ya que apenas comenzamos a escribir, nos brinda cuáles son las opciones disponibles (foto 15).
+
+6. Previamente rastreamos con nmap si Windows tenía puertos 80 y 445 abiertos. Para filtrar esto en Wireshark, utilizamos el siguiente filtro
+
+tcp.port == 80 or tcp.port == 445
+
+Con "or", le indicamos a Wireshark que filtre por un puerto o el otro, ya que si pusieramos "&&" como con el filtro anterior, no habría coincidencias. También escaneamos con nmap mediante el envío de paqueres SYN: para filtrar esta búsqueda utilizamos
+
+tcp.flags.syn == 1
+
+Así le indicamos a Wireshark que nos muestre los paquetes TCP con la flag SYN activada, lo cual representa el inicio de una conexión TCP (es decir, cuando un host intenta establecer una conexión con otro). El valor "1" indica que la flag está activa. En cambio, si usamos "tcp.flags.syn == 0", Wireshark filtrará los paquetes TCP donde la flag SYN no está presente, lo que puede incluir otros tipos de paquetes como ACK, FIN, etc.
+Ajustamos un poco más la búsqueda con
+
+tcp.flags.syn == 1 && tcp.dstport == 80
+
+De este modo le pedimos a Wireshark que nos muestre lo del paso anterior pero además que filtre sólo cuando el puerto 80 del host de destino fue alcanzado.
+
+7. Con este último filtro, vamos a investigar en el panel de detalle de paquetes los diferentes niveles del modelo OSI. Tocamos la flecha que acompaña la primera línea ("Frame") y se desplegará toda la información que se encuentra en este frame, como desde cuál interfaz proviene, horario de llegada, tamaño, etc. A continuación, siguiendo con la capa Data Link, podemos visualizar las direcciones MAC de los host, qué protocolo se utilizó (IPv4 o IPv6), etc. Si pasamos a la capa Network, vislumbramos los datos específicos del paquete: el tamaño, el protocolo, la IP de la fuente y la IP de destino, etc. Por último, en la última línea ("Transmission Control Protocol"), podemos ver el puerto desde dónde salió el paquete, el puerto al que llegó, las flags, etc. En futuras etapas, analizaremos con mayor detalle los paquetes para buscar inconsistencias o datos que nos permitan encontrar vulnerabilidades.
+
+8. Para finalizar con esta etapa, vamos a guardar todos estos paquetes recibidos en un archivo. Para eso, detenemos la captura, vamos a File -> Save As y lo guardamos con el nombre que deseamos. La extensión que elegiremos será .pcap, que es la más habitual y también nos permitirá analizar estos paquetes con otro software, como por ejemplo tcpdump, Zeek o Snort.
+
+

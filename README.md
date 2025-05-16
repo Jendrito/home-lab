@@ -47,6 +47,12 @@ Este repositorio documenta paso a paso la creación del entorno de laboratorio. 
 11. **Fase 2: Envío de logs desde Windows a Kali Linux usando NXlog**
    Instalacion y configuración de NXLog en Windows 10, verificación de envío de logs desde Windows 10 a Kali Linux y configuracón del servidor para guardar registro en archivos separados.
 
+12. **Primer análisis con Wireshark y nmap**
+   Escaneo de puertos básico con nmap y visualización con Wireshark, destacando conceptos fundamentales para análisis de paquetes y filtros de captura.
+
+13. **Segundo análisis con Wireshark, nmap e Hydra**
+   Escaneo de puertos más profundo con nmap, ataque de fuerza bruta sobre servicio SSH con Hydra y análisis con Wireshark para visualizar patrones característicos de intrusión.
+
 ---
 
 📁 Cómo usar este repositorio

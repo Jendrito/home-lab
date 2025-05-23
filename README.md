@@ -53,6 +53,12 @@ Este repositorio documenta paso a paso la creación del entorno de laboratorio. 
 13. **Segundo análisis con Wireshark, nmap e Hydra**
    Escaneo de puertos más profundo con nmap, ataque de fuerza bruta sobre servicio SSH con Hydra y análisis con Wireshark para visualizar patrones característicos de intrusión.
 
+14. **Explotación con Metasploit y análisis con Wireshark**
+    Simulación de ataque de enumeración SMB utilizando Metasploit y análisis con Wireshark para detectar alarmas de posible intrusión
+
+15. **Ataque vía reverse shell y análisis con Wireshark**
+   Simulación de ataque con utilización de malware creado a partir de un script ejecutado en Powershell y análisis con Wireshark para entender consecuencias de una vulnerabilidad.
+
 ---
 
 📁 Cómo usar este repositorio

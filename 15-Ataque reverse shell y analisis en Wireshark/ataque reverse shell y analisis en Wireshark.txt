@@ -1,0 +1,59 @@
+1. Para este nuevo análisis en Wireshark, vamos a simular un ataque de reverse shell. Hay que tener en cuenta que, para poder centrarnos en el análisis propiamente dicho, hay pasos que en este ataque van a ser omitidos. Porque, para que esto funcione, previamente la víctima debería haber descargado un archivo que ejecute el comando para abrir el puerto que corresponde en Windows y que atacante pueda iniciar la conexión. Es por eso que, en nuestro caso, vamos a ejecutar el comando directamente en Windows, que simulará la ejecución manual de un archivo por parte de una víctima.
+
+Lo primero que haremos será comenzar la captura de paquetes en Wireshark y luego, desde una terminal en Kali, ejecutar:
+
+nc -lvp 4444
+
+Este comando ejecuta Netcat (nc), escucha conexiones entrantes (-l), en modo verbose (-v) y lo hace en el puerto 4444 (-p 4444). Entonces esto permitirá que, una vez abierta la conexión desde Windows, Kali pueda recibir la información en este puerto y que nos llegue a Wireshark.
+
+2. A continuación, en Windows, vamos a desactivar el firewall y Windows Defender. ¿Por qué? Porque al simular un ataque vía un comando que se ejecutara, si la seguridad de Windows está activada, el ataque no tendrá efecto. Realizamos esto simplemente para poder analizar luego lo sucedido en Wireshark y entender cómo un atacante podría realizar esta acción.
+
+Luego, vamos a crear un archivo en Windows que simulará ser un ejecutable que la víctima podría haber descargado de un adjunto en un correo electrónico o desde alguna página web. En nuestro caso lo ejecutaremos desde la consola de Powershell para realizar la conexión con Kali, pero hay herramientas que empaquetan archivos como .exe para que un usuario lo ejecute sin saberlo.
+
+El archivo está guardado en la carpeta del repositorio ("test.ps1") y simplemente debemos copiar su contenido en un archivo .txt en Windows, cambiar la IP (ver foto 2), guardar y luego cambiar la extensión de .txt a .ps1. Esto permitirá que se interprete como un script válido de Powershell.
+
+Abrimos una terminal Powershell (Administrador) y ejecutamos:
+
+powershell -ExecutionPolicy Bypass -File C:\ruta\a\reverse.ps1
+
+Tener en cuenta que la ruta debe ser dónde esté creado el archivo .ps1. De esta manera, al correr Powershell este archivo, se ejecutará el comando y podremos ver en la consola de Kali que se crea la conexión entre las dos VM. Si analizamos en Wireshark con el filtro:
+
+tcp.port == 4444
+
+vamos a notar que la conexión fue establecida (3-way handshake) y que además, a diferencia de los análisis anteriors, vemos un paquete con la flag PSH, ACK y que posee datos (ver foto 6, paquete 6, "Len=20"). Esto significa que, una vez creada la conexión, Windows envío un paquete a Kali para que procese inmediatamente los datos sin esperar a que se carguen en el búfer. Si revisamos la consola de Kali, vamos a notar que apareció un mensaje con la leyenda "hola desde Windows". Esto fue determinado a propópsito en el script de test.ps1 para que podamos comprobar que la conexión fue establecidad correctamente.
+
+3. Creada esta conexión, desde la terminal de Kali, podemos interactuar con Windows como si estuvieramos utilizando una consola desde ese sistema operativo. Por ejemplo, podemos correr los comandos para reconocimiento del sistema:
+
+- whoami (usuario actual)
+- hostname (nombre del equipo)
+- ipconfig /all (configuración de red)
+- systeminfo (detalles del sistema)
+- net user (usuarios locales)
+- net localgroup administradores (admins del sistema)
+- tasklist (procesos activos)
+
+Comandos para explorar archivos y discos:
+
+- dir (archivos del directorio actual)
+- cd C:\ (cambiar de directorio)
+- gci -Recurse -Filter *.txt -File | select FullName (para encontrar archivos .txt que puedan contener contraseñas)
+
+Una vez que hayamos ejecutado todos los comandos que deseemos, desde la terminal de Kali corremos "exit" y terminamos la conexión.
+
+Ahora, volviendo a Wireshark, podemos ver todos los paquetes que se intercambiaron en el puerto 4444 entre estas dos VMs. Teniendo en cuenta lo que vimos antes, podemos filtrar por flags que contengan PSH de esta manera:
+
+tcp.port == 4444 && tcp.flags.push == 1
+
+De esta manera, se muestran todos los paquetes que enviaron datos a Kali (va a depender de los comandos que se hayan ejecutado desde Kali). Cada paquete de estos va a contener un campo llamado "Data" que, en sistema hexadecimal, va a contener la información que se envió en este paquete. Por ejemplo, usando nuevamente el paquete 6 que contiene "hola desde Windows", si tomamos el valor que se encuentra en "Data" y lo decodificamos con una herramienta como CyberChef, vamos a obtener como resultado "hola desde Windows".
+
+Para hacer más sencillo este proceso y no ir uno por uno en los paquetes decodificando su contenido, y teniendo en cuenta que esta conexión no está cifrada, sobre cualquier paquete (con el filtro anterior aplicado) hacemos click derecho, vamos a "Follow" y damos en "TCP Stream". Hecho esto, podremos ver todos los comandos enviados desde Kali y los datos enviados desde Windows (rojo Windows, azul Kali). 
+
+4. Otra forma de poder buscar información será utilizando la herramienta "Find a packet" de Wireshark. Para eso, damos click en la lupa (foto 10) y, una vez dentro, podemos elegir cuáles parámetros usar para buscar un paquete. Por ejemplo, suponiendo que como analistas sospechamos que se producido un ataque por reverse shell, podemos buscar alguno de los comandos que se detallaron antes. Utilicemos "whoami": el cuadro de búsqueda se muestra en color rojo. Esto indica que con el parámetro por default ("Display filter"), "whoami" no está reconocido como un protocolo. 
+
+Entonces, poder encontrar la palabra que deseamos buscar, cambiamos "Display filter" por "String", y notaremos que ahora el cuadro de búsqueda se muestra en verde. Si damos click en "Find", Wireshark nos dirá que ningún paquete contiene esa información. Esto se debe a que el otro parámetro a setear está en "Packet list" y, de esta manera, Wireshark va a buscar por la palabra que elegimos en la columna "Info" de la lista de paquetes.
+
+A continuación, vamos a indicar a Wireshark que deseamos buscar los bytes del paquete. Entonces seleccionamos "Packet bytes", clickeamos en "Find" y ahora sí nos encontrá el paquete que contiene esta información. ¿Por qué encuetra el dato en el panel de bytes y no en el de detalles? Porque Wireshark codifica el string en hexadecimal y por eso lo marca donde se encuentran los bytes. Podemos hacer la prueba de tomar el valor hexadecimal y buscarlo en "Packet bytes": Wireshark no encontrará el paquete. Pero si cambiamos a "Packet details", si lo marcará.
+
+5. Si vamos a "Statistics" y luego a "Conversations", se abrirá una ventana para ver las conexiones entre endpoints. Con la opción "Limit to display filter" marcada (si no, mostrará todas las conversaciones que Kali tuvo con otros dispositivos), en la pestaña "Ethernet" podemos ver, entre otros datos, las direcciones MAC de cada endpoint, la cantidad de paquetes enviados y la duración de la conversacion. Este último dato puede ser muy importante ya que nos muestra durante cuanto tiempo el atacante tuvo acceso en la PC vulnerable.
+
+En la pestaña "TCP", vamos a poder observar, entre otros datos, las direcciones IP, los puertos utilizados (al ver 4444 ya sería sospechoso) y los paquetes que cada endpoint le envió al otro.

@@ -1,0 +1,84 @@
+1. En este nuevo análisis con Wireshark, vamos a simular un ataque de enumeración Server Message Block (SMB), un protocolo utilizado por Windows para compartir archivos, impresoras y otros recursos. Para realizar este ataque utilizaremos la herramienta Metasploit, que proporciona información sobre vulberabiliades mediante la utilización de exploits.
+
+El primer paso será iniciar Metasploit desde una terminal. Para eso corremos el comando:
+
+msfconsole
+
+Una vez dentro de la consola del framework, si tipeamos "help" y presionamos enter, Metasploit nos dará información sobre todos los comandos disponibles. Como se mencionó anteriormente, nuestra intención es explotar vulnerabilidades en el protocolo SMB, entonces en la terminal escribimos:
+
+search smb
+
+Esto nos brindará una gran cantidad de módulos que se relacionan con SMB, siendo los más relevantes "auxiliary" y "exploit". La mayor diferencia entre estos dos tipos de módulos es que el primero realiza tareas de reconocimiento y el segundo, mediante paylods, atacan una vulnerabilidad específica. En nuestro caso, utilizaremos un módulo "auxiliary".
+
+Teniendo en cuenta que son muchísimos los módulos mostrados, vamos a afinar más la búsqueda y tipear:
+
+search type:auxiliary smb
+
+Podemos ver que cada módulo tiene un número y este lo podemos utilizar para saber más sobre el mismo o para utilizarlo. Por ejemplo, si tipeamos:
+
+info 71
+
+vamos a poder ver quien creo el módulo, las opciones para utilizarlo y una descripción de lo que hace el módulo. Será de mucha utilidad usar siempre este comando para saber como configurar el módulo antes de utilizarlo.
+
+2. Vamos a utilizar este mismo módulo, pero antes debemos comenzar a capturar paquetes en Wireshark. Una vez hecho esto, corremos el comando:
+
+use 71 (también podemos usar "use auxiliary/scanner/smb/smb_enumusers")
+
+Una vez dentro del módulo, antes de setearlo, podemos ver qué opciones ofrece. Para eso corremos:
+
+show options (u options directamente)
+
+Esto mostrará qué opciones actualmente están seteadas y cuáles son requeridas. Si vemos en "RHOSTS", actualmente no está seteado y, más allá de que no es requerido, lo vamos a setear para indicar al módulo cuál será el endpoint a escanear. Para eso, utilizamos el comando:
+
+set RHOSTS 192.168.30.10 (o la IP del host vulnerable)
+
+Una vez hecho, podemos volver a correr el comando "show options" y ahora sí aparecerá seteado el host que nos interesa atacar.
+
+Nos resta correr el módulo, para lo que simplemente debemos ejecutar:
+
+run
+
+Volvemos a Wireshark y, utilizando el siguiente filtro:
+
+ip.addr == 192.168.30.10 && tcp.port == 445
+
+En este caso filtramos por el puerto 445, que está asociado al protocolo SMB. Podemos notar que Kali intentó hacer el ataque enviando paquetes SYN, pero no hubo respuesta de Windows ya que la conexión no se realizó. Además, en la terminal de Metasploit, vemos que se produjo un error por agotarse el tiempo. 
+
+Como hemos hecho en otras etapas, vamos a desactivar el firewall en Windows y analizar nuevamente la interacción. Una vez hecho, volvemos a ejecutar el módulo: en este caso podemos ver que si se produjo una conexión, pero Windows deniega el acceso ya que Metasploit intenta autenticarse sin una credencial válida. Podemos desglosarlo de esta manera:
+
+-Línea 17 a 19: Se produce la conexión TCP ya que vemos el 3-way handshake (SYN, SYN-ACK y ACK).
+-Línea 20 a 24: Se produce la negociación del protocolo SMB, mostrando que está habilitado.
+-Línea 25 a 28: Metasploit intenta autenticarse sin credencial válida (en la línea 27 se puede ver "User: .\") y Windows le deniega el acceso (línea 28)
+-Línea 29 a 31: Se cierra la conexión
+
+De esta manera podemos confirmar que Windows necesita un autenticación válida para mostrar información de usuarios.
+
+3. Volvemos a la consola de Metasploit, corremos el comando:
+
+back
+
+De esta forma salimos del módulo actual para poder utilizar otro. En este caso utilizaremos smb_login, que nos permitirá ver logins exitosos en la máquina vulnerable. Pero, teniendo en cuenta el caso anterior, vamos a obtener el mismo resultado sin tener acceso a ninguna información relevante. Entonces, para la siguiente prueba, vamos a crear un usuario con credenciales débiles en Windows y además una carpeta compartida a la que este usuario tenga acceso.
+
+Primero, creamos el usuario desde una terminal de Windows con el comando:
+
+net user admin admin1234 /add
+
+Luego, en el Disco Local C, vamos a crear una carpeta (yo usé el nombre "Compartida" para hacerlo claro) y la vamos a compartir con el usuario recientemente creado. Para eso: botón derecho sobre la carpeta, "Propiedades", "Compartir", cliqueamos en el botón "Compartir" y en el cuadro desplegable elegimos el usuario. El "Nivel de Permiso" quedará en "Lectura", ya que es suficiente para que el ataque con Metasploit funcione. Seleccionamos "Compartir" y nos dirá que la carpeta está compartida.
+
+Como anteriormente vimos que con el firewall activado en Windows no había posibilidad de conexión con Kali, lo desactivamos. Volvemos a la terminal de Metasploit, y, para encontrar más rápidamente el módulo, corremos el comando:
+
+search smb_login
+
+Y luego utilizamos:
+
+use 0
+
+A continuación, vamos a ver cuáles son las opciones a configurar. Lo hacemos con:
+
+options
+
+En este caso, además de setear el host como con el módulo anterior, vamos a decirle al módulo cuál es el usuario y la contraseña. Es lógico pensar que esta prueba es difícil de concretar teniendo en cuenta que no sabemos ni usuario ni contraseña de la máquina vulnerable, pero para poder mostrar los resultados de un ataque, vamos a utilizar las credenciales del usuario que creamos en Windows. Para eso usamos "set SMBPass" para contraseña y "set SMBUser" para usuario (además de RHOSTS como hicimos antes). También, en el caso de que deseemos realizar una prueba sin conocimiento de usuarios o contraseñas, entre las opciones de este módulo existe la posible de setear archivos con contraseñas (USERPASS_FILE) y archivos con usuarios (USER_FILE)
+
+Antes de correr el módulo, comenzamos la captura de paquetes en Wireshark. Hagamos la prueba poniendo una contraseña incorrecta para ver qué información nos brinda Wireshark. Una vez seteados los parámetros, corremos el módulo y podemos ver que en Wireshark se muestra el inicio de conexión pero, al usar un password incorrecto, eventualmente se cierra.
+
+Ahora, seteando la contraseña correcta, además de que en la consola de Metasploit podemos ver que fue exitoso el ataque de fuerza bruta, los paquetes en Wireshark no mostraran "STATUS_LOGON_FAILURE" (foto 16, paquete 24), lo que implica que se logró acreditar la credencial.

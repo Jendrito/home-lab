@@ -1,0 +1,69 @@
+1. Primero, vamos a actualizar el sistema con el siguiente comando:
+
+sudo apt update && sudo apt upgrade -y
+
+Esto permitirá actualizar la lista de paquetes (apt update) y, luego, actualizar todos los paquetes disponibles a sus últimas versiones (apt upgrade). Tener en cuenta que los paquetes pueden diferir con respecto a lo que se ve en la foto 1 de este tutorial.
+
+2. Luego, instalaremos las dependencias necesarias que nos permitirán instalar certificados a través de HTTPS y descargar claves GPG necesarias para instalar Docker. Corremos el siguiente comando:
+
+sudo apt install apt-transport-https ca-certificates curl gnupg lsb-release -y
+
+- apt-transport-https: permite a apt obtener paquetes a través de HTTPS (más seguro).
+- ca-certificates: instala certificados raíz para validar conexiones HTTPS.
+- curl: herramienta para hacer solicitudes a URLs, usada más adelante para descargar claves y scripts.
+- gnupg: permite trabajar con claves GPG (para verificar firmas).
+- lsb-release: herramienta para obtener información sobre la distribución (como su nombre y versión).
+- -y: acepta automáticamente la instalación.
+
+3. A continuación, agregamos la clave GPC del repositorio de Docker:
+
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+- curl -fsSL URL: descarga el archivo GPG de Docker.
+- |: canaliza la salida de curl a la entrada de gpg.
+- sudo gpg --dearmor: convierte la clave de texto plano a un formato binario (.gpg) que apt puede usar.
+- -o /usr/share/keyrings/docker-archive-keyring.gpg: guarda la clave en ese archivo específico.
+
+4. Ahora, agregamos el repositorio de Docker:
+
+echo \
+"deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
+https://download.docker.com/linux/debian \
+bullseye stable" | sudo tee /etc/apt/sources.list.d/docker.list
+
+- echo: imprime el texto entre comillas (la línea de repositorio).
+- dpkg --print-architecture: detecta si la máquina es amd64, arm64, etc.
+- lsb_release -cs: obtiene el codename del sistema (por ejemplo kali-rolling).
+- signed-by=...: le dice a apt que use la clave GPG que se descargó para verificar este repositorio.
+- | sudo tee archivo: guarda esa línea en el archivo /etc/apt/sources.list.d/docker.list.
+
+5. En este paso, vamos a instalar Docker Engine, que nos permitirá ejecutar contenedores:
+
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io -y
+
+- apt update: actualiza la lista de paquetes, ahora incluyendo el nuevo repositorio de Docker.
+- docker-ce: la Community Edition del motor de Docker.
+- docker-ce-cli: la herramienta de línea de comandos de Docker.
+- containerd.io: runtime que Docker usa por debajo para ejecutar contenedores.
+
+Y luego verificamos que Docker esté funcionando con:
+
+sudo systemctl status docker
+
+6. Ahora, vamos a descargar Docker Compose, un plugin que permitirá correr aplicaciones completas como, en nuestro caso, Wazuh:
+
+sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+
+- curl -L: descarga desde GitHub, siguiendo redirecciones.
+- $(uname -s): detecta el sistema operativo (Linux).
+- $(uname -m): detecta la arquitectura (x86_64, arm64, etc.).
+- -o /usr/local/bin/docker-compose: guarda el binario descargado en el path estándar donde el sistema puede encontrarlo
+
+Y luego darle permisos de ejecución:
+
+sudo chmod +x /usr/local/bin/docker-compose
+
+7. Por último, verificamos que se haya instalado:
+
+docker-compose --version

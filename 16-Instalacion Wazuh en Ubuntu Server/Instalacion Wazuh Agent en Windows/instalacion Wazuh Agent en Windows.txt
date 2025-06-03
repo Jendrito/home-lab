@@ -1,0 +1,57 @@
+1. Actualmente la VM con Windows está enviando logs a Kali mediante NXLog, soft que podríamos seguir utilizando para que envíe estos registros a Wazuh. Pero la opción recomendada será utilizar Wazuh Agent, ya que de esta forma se podrá monitorear de forma más completa y con reglas de seguridad mas avanzadas.
+
+Debemos descargar el instalador en Windows pero, como ya pasó en etapas anteriores, no tenemos internet para hacer esto. En mi caso, voy a volver a usar la opción de levantar un servidor HTTP entre Kali y Windows para transferir el archivo. Pero primero, debo descargarlo en Kali. Podemos acceder a la web de Wazuh para esta acción, pero en esta ocasión vamos a descargar el paquete con el comando "wget" desde la consola de Kali.
+
+Como primer paso, en el caso de que no estemos mas dentro del contenedor de Ubuntu, vamos a correr unos comandos para comprobar el estado del mismo. Primero corremos:
+
+sudo docker ps -a
+
+Con esto podemos ver el ID del container, que imagen utiliza, su nombre y el estado. En mi caso dice "Exited", por lo que no esta operativo. Por lo tanto, para activarlo voy a correr:
+
+sudo docker start wazuh-ubuntu
+
+Es importante destacar que luego del "start" hay que poner el nombre que le otorgamos a nuestro contenedor. Ahora, volvemos a correr "sudo docker ps -a" y podemos ver que cambió el estado y ya está corriendo.
+
+2. Ahora, vamos a acceder al contenedor:
+
+sudo docker exec -it wazuh-ubuntu bash
+
+Nuevamente, es importante que el nombre sea al que corresponde a nuestro contenedor. El "bash" al final es porque es el comando otorgado que se podía ver antes cuando verificamos el estado del contenedor.
+
+Ahora volveremos a ver el "root" seguido por el ID de nuestro contenedor. Para saber cuál es el paquete que debemos descargar luego, necesitamos saber cuál es la versión de Wazuh Manager para que coincida con Wazuh Agent. Para eso corremos:
+
+/var/ossec/bin/wazuh-control info
+
+Lo más probable es que la versión sea la misma que este portfolio (la última, 4.12), por lo que en otra terminal de Kali, vamos a correr el comando:
+
+wget https://packages.wazuh.com/4.x/windows/wazuh-agent-4.12.0-1.msi -O wazuh-agent.msi
+
+"-O" es la opción para poder nombrar el paquete como deseamos (en este caso, "wazuh-agent". Dependiendo dónde hayamos abierto la terminal, es en dónde este paquete se habrá descargado (en mi caso, en el escritorio).
+
+3. Para transerirlo a Windows, abrimos un servidor HTTP en Kali:
+
+python3 -m http.server 8080
+
+En Windows, abrimos un navegador y en la barra de búsqueda corremos:
+
+http://192.168.50.20:8080/wazuh-agent.msi
+
+Recordar cambiar la IP que corresponda a la VM de Kali. De esta forma, el archivo que estaba en Kali ahora también estará en Windows, sin necesidad de activar internet en esa VM.
+
+4. Ya con el archivo .msi en Windows, corremos el instalador y al finalizar marcamos la casilla "Run Agent configuration interface" para poder configurar el agente. En el campo "Manager IP" vamos a poner la IP que corresponde a nuestra VM con Kali Linux (en mi caso, 192.168.50.20) que es donde tenemos Wazuh Manager; en el campo "Authentication key" nos pide por un password para que este agente se puede autenticar. Para esto, vamos a volver a Kali, y dentro del contenedor de Ubuntu, vamos a correr el Manager con:
+
+/var/ossec/bin/wazuh-control start
+
+Luego, corremos el comando:
+
+/var/ossec/bin/manage_agents
+
+Nos aparecerá un menú con diferentes opciones y, como deseamos agregar un agente, vamos a elegir la opción "A"; nos pedirá darle un nombre a este agente (yo elegí "wazuh-windows") y la IP (en mi caso, 192.168.30.10). Confirmamos y volvemos al menú incial, dónde ahora vamos a elegir la opción "E" para extraer la llave del agente. Copiamos la información de la llave y existen dos opciones: o pegar la clave directamente en "Authentication key" del agente en Windows o utilizar el servicio "agent-auth" en el contenedor. Como la segunda opción es ideal para cuando hay que automatizar varios agentes y si no tenemos una forma de transferir la llave de forma segura, en este caso vamos a usar la primera opción debido a ser un solo agente. Una vez pegada la key, cliqueamos "Save" y el agente reconocerá los datos de Windows.
+
+Podemos ver que el estado es "Stopped"; para activarlo, podemos hacerlo desde "Servicios" de Windows o directamente desde una consola de Administrador con el comando:
+
+net start wazuh
+
+Si cliqueamos "Refresh" en el agente, vamos a ver que ahora el estado es "Running". Para confirmar que también está activo en Wazuh Manager, volvemos a Kali y en el contenedor corremos:
+
+/var/ossec/bin/agent_control -l

@@ -1,0 +1,5 @@
+1. Actualmente la VM con Windows está enviando logs a Kali mediante NXLog, soft que podríamos seguir utilizando para que envíe estos registros a Wazuh. Pero la opción recomendada será utilizar Wazuh Agent, ya que de esta forma se podrá monitorear de forma más completa y con reglas de seguridad mas avanzadas.
+
+Debemos descargar el instalador en Windows pero, como ya pasó en etapas anteriores, no tenemos internet para hacer esto. En mi caso, voy a volver a usar la opción de levantar un servidor HTTP entre Kali y Windows para transferir el archivo. Pero primero, debo descargarlo en Kali:
+
+https://packages.wazuh.com/4.x/windows/wazuh-agent-4.12.0-1.msi

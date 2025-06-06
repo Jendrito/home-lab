@@ -54,13 +54,18 @@ Este repositorio documenta paso a paso la creación del entorno de laboratorio. 
    Escaneo de puertos más profundo con nmap, ataque de fuerza bruta sobre servicio SSH con Hydra y análisis con Wireshark para visualizar patrones característicos de intrusión.
 
 14. **Explotación con Metasploit y análisis con Wireshark**  
-    Simulación de ataque de enumeración SMB utilizando Metasploit y análisis con Wireshark para detectar alarmas de posible intrusión
+    Simulación de ataque de enumeración SMB utilizando Metasploit y análisis con Wireshark para detectar alarmas de posible intrusión.
 
 15. **Ataque vía reverse shell y análisis con Wireshark**  
    Simulación de ataque con utilización de malware creado a partir de un script ejecutado en Powershell y análisis con Wireshark para entender consecuencias de una vulnerabilidad.
 
-16. **Instalación de Wazuh en Ubuntu Server**  
-   ✔ a. Primeros pasos para instalación de Docker en Kali y luego levantar un contenedor con Ubuntu Server para instalación de Wazuh Manager.
+16. **Instalación de Wazuh con contenedor de Docker**  
+   a. Primeros pasos para instalación de Docker en Kali y luego correr Wazuh Docker para utilizar Wazuh desde un contenedor para mantener entorno limpio y modular.  
+   b. Instalación de Wazuh Agent en máquina virtual Windows 10, configuración de agente en Wazuh Manager en Kali y acceso a Wazuh Dashboard para confirmar agente activo.  
+   c. Opción de modificar contraseña por default de Wazuh Dashboard.  
+
+17. **Primeras pruebas en Wazuh**  
+   Análisis de tipos de eventos que se visualizan en Wazuh Dashboard, modificación de auditorías en Windows 10 y ejecución de script para simular malware.  
 
 ---
 

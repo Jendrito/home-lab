@@ -1,0 +1,32 @@
+1) Para realizar este paso, me pareció buena idea simular un ataque a través de la ejecución de un malware falso para poder luego analizarlo en Wazuh. Pero cuando me disponía a ver si los logs llegaban correctamente para ser visualizados en el dashboard, noté que únicamente llegaba eventos con ID 4624, que indica un inicio de sesión exitoso en el sistema. Pero nada aparecía sobre el proceso que se ejecutó con el malware falso. Incluso hice la prueba de simplemente abrir el Visor de Eventos de Windows para ver si se registraba algún log, pero tampoco sucedió.
+
+Para investigar porqué sucedía esto, revisé las políticas de auditoría de Windows con el siguiente comando desde una terminal de Administrador:
+
+auditpol /get /category:*
+
+Esto me mostró que la gran mayoría de las categorías contenían "Sin auditoría" en su configuración, motivo por el cual no estaban apareciendo los logs. De hecho, una ded las pocas categorías que sí tenía registro era "Inicio de sesión", que correspondía al ID 4624.
+
+Para solucionar esto, hay que modificar cada una de las políticas que sí queremos ver su registro. Para no hacerlo una por una y que sea mas rápido el proceso, vamos a automatizar la configuración con el script "habilitar_auditorias.bat" que se encuentra en la misma carpeta que este archivo.
+
+Con el archivo .bat ya en el escritorio de nuestra VM con Windows, hacemos click derecho y lo ejecutamos como administrador. Una vez que terminé de correr, deberíamos poder ver los resultados de las fotos 04 y 05. Ahora, reiniciamos Wazuh en Windows corriendo los siguientes comandos en una terminal con permisos de administrador:
+
+net stop wazuh
+net start wazuh
+
+2) En el dashboard de Wazuh, arriba a la izquierda donde están las tres rayas negras, abrimos la sección "Explore" y dentro de ella vamos a "Discover". En el caso de que no aparezca ninguna alerta, debemos confirmar que esta correctamente seteado el index en "wazuh-alerts-*", que hay una ventana de tiempo actualizada y dar en "Refresh" si es necesario para actualizar los logs. 
+
+Una vez que ya podamos ver alerta, para constatar que nos llegan todos los eventos como configuramos previamente en Windows, en la barra izquierda donde podemos ver los campos disponibles, vamos a buscar "data.win.system.eventID", cliqueamos en la lupa y se mostrarán todos los valores que ese campo posee. Antes de habilitar las auditorías, en mi caso solo aparecía el ID 4624.
+
+3) En la misma carpeta que este tutorial se encuentra un archivo llamado "fake_malware.bat" que, justamente como su nombre lo indica, simulara ser un malware para que lo podamos identificar en Wazuh. Este script creará un archivo de texto de prueba, intentará abrir un sitio web simulando una comunicación C2 y luego eliminará el texto de prueba. Es probable que cuando lo descarguemos en Windows no diga que es un archivo malicioso, pero desestimamos esto ya que realmente el script no ejecuta nada que pueda perjudicar al sistema.
+
+Vamos a ejecutar el archivo .bat, esperar a su resolución y volver al dashboard de Wazuh en Kali. Cliqueamos en "Refresh" para actualizar los registros y dónde se encuentra el buscador vamos a correr el siguiente query:
+
+data.win.system.eventID:4688 AND data.win.eventData.newProcessName:*cmd.exe
+
+Vamos a visualizar la alerta y si, damos click en la flecha en el costado izquierdo, vamos a poder ver los datos de todos los campos disponibles, tomando como ejemplo el campo "data.win.system.message", donde se informa de la creación de un nuevo proceso.
+
+También podemos buscar creación de procesos para navegador (suponiendo que con el script ya haya abierto Microsoft Edge):
+
+data.win.system.eventID:4688 AND data.win.eventdata.newProcessName:*msedge.exe
+
+4) A través de este proceso descubrí que, a pesar de haber autorizado auditorías, algunos eventos seguían sin aparecer en Wazuh. Por ejemplo, el script que ejecutamos creaba, escribía y borraba un archivo (malware_log.txt). El ID de ese proceso es 4663 en Windows, pero si buscamos filtrar por ese código, no va a aparecer. Luego de buscar el porqué, terminé resolviendo que el problema está en que Windows Home tiene limitaciones en lo auditoría de "Acceso a objetos". Por lo tanto, lo mejor será implementar la utilizad Sysmon (System Monitor), una utilidad gratuita de Microsoft Sysinternals que nos permitirá eventos mucho más detallados del sistema y que implementaremos en la próxima etapa.

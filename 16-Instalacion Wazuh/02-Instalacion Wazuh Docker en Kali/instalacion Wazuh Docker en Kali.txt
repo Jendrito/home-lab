@@ -1,0 +1,37 @@
+1. Vamos a crear un directorio para Wazuh:
+
+sudo mkdir -p ~/Desktop/wazuh-docker
+
+Y accedemos a la carpeta
+
+cd ~/Desktop/wazuh-docker
+
+Una vez dentro de la misma, vamos a clonar el repositorio de Wazuh Docker:
+
+sudo git clone https://github.com/wazuh/wazuh-docker.git
+
+Ahora, entramos en la carpeta "single-node":
+
+cd wazuh-docker/single-node
+
+Como siguiente paso, vamos a ejecutar un comando que permitirá a Wazuh generar comunicaciones seguras entre sus componente:
+
+docker-compose -f generate-indexer-certs.yml run --rm generator
+
+Y finalmente, vamos a correr un comando que levanta los contenedores definidos en el archivo docker-compose.yml, que serán Wazuh Manager (servicio principal), Wazuh Indexer (motor de búsqueda basado en OpenSearch), Wazuh Dashboard (para visualización) y Filebeat (para gestión de logs):
+
+docker-compose up -d
+
+Si llegamos a tener un error, es probable que esté mal la versión dentro del archivo docker-compose.yml. Para esto, vamos a correr:
+
+sudo nano docker-compose-yml
+
+Y debemos cambiar la versión de los tres componentes (podemos verla donde dice "image") a una versión estable que compartan. En este caso, vamos a utilizar la versión 4.12.0. Guardamos el archivo con Ctrl+O y luego lo cerramos con Ctrl+X. Ahora corremos:
+
+sudo docker-compose pull  
+
+para bajar las imágenes correctas que acabamos de configurar y:
+
+sudo docker-compose up -d  
+
+para levantar nuevamente los servicios.

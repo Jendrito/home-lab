@@ -1,0 +1,43 @@
+1. Actualmente la VM con Windows está enviando logs a Kali mediante NXLog, soft que podríamos seguir utilizando para que envíe estos registros a Wazuh. Pero la opción recomendada será utilizar Wazuh Agent, ya que de esta forma se podrá monitorear de forma más completa y con reglas de seguridad mas avanzadas.
+
+Debemos descargar el instalador en Windows pero, como ya pasó en etapas anteriores, no tenemos internet para hacer esto. En mi caso, voy a volver a usar la opción de levantar un servidor HTTP entre Kali y Windows para transferir el archivo. Pero primero, debo descargarlo en Kali. Podemos acceder a la web de Wazuh para esta acción, pero en esta ocasión vamos a descargar el paquete con el comando "wget" desde la consola de Kali.
+
+Vamos a descargar la misma versión que utilizamos en los servicios descargados en Kali:
+
+wget https://packages.wazuh.com/4.x/windows/wazuh-agent-4.12.0-1.msi -O wazuh-agent.msi
+
+"-O" es la opción para poder nombrar el paquete como deseamos (en este caso, "wazuh-agent". Dependiendo dónde hayamos abierto la terminal, es en dónde este paquete se habrá descargado (en mi caso, en el escritorio).
+
+3. Para transerirlo a Windows, abrimos un servidor HTTP en Kali:
+
+python3 -m http.server 8080
+
+En Windows, abrimos un navegador y en la barra de búsqueda corremos:
+
+http://192.168.50.20:8080/wazuh-agent.msi
+
+Recordar cambiar la IP que corresponda a la VM de Kali. De esta forma, el archivo que estaba en Kali ahora también estará en Windows, sin necesidad de activar internet en esa VM.
+
+4. Ya con el archivo .msi en Windows, corremos el instalador y al finalizar marcamos la casilla "Run Agent configuration interface" para poder configurar el agente. En el campo "Manager IP" vamos a poner la IP que corresponde a nuestra VM con Kali Linux (en mi caso, 192.168.50.20) que es donde tenemos Wazuh Manager; en el campo "Authentication key" nos pide por un password para que este agente se puede autenticar. 
+
+Volvemos a Kali y corremos el comando: 
+
+docker exec -it single-node-wazuh.manager-1 /var/ossec/bin/manage_agents
+
+Nos aparecerá un menú con diferentes opciones y, como deseamos agregar un agente, vamos a elegir la opción "A"; nos pedirá darle un nombre a este agente (yo elegí "wazuh-windows") y la IP (en mi caso, 192.168.30.10). Confirmamos y volvemos al menú inicial, dónde ahora vamos a elegir la opción "E" para extraer la llave del agente. Copiamos la información de la llave, volvemos a Windows y la pegamos donde dice "Authentication Key". Una vez que cliqueamos "Save", nos mostrará los datos de el agente (ID e IP que nos muestra en Wazuh Manager en Kali). 
+
+Si ahora cliqueamos "Refresh", el agente seguirá en "Stopped", por lo que ahora debemos inicializar el servicio de Wazuh. Abrimos una consola con permisos de Administrador y ejecutamos:
+
+net start wazuh
+
+Ahora volvemos a cliquear "Refresh" y el estado debería cambiar a "Running". Para terminar de confirmar que el agente ya está corriendo y Wazuh Manager lo recibe, volvemos a la terminal de Kali y corremos:
+
+docker exec -it single-node-wazuh.manager-1 /var/ossec/bin/agent_control -l
+
+Deberíamos ver el manager (nuestro servidor) y el agente (la VM de Windows) con la leyenda "Active".
+
+5. Para acceder al dashboard de Wazuh, en un navegar, vamos a poner la IP de nuestra VM con Kali (en mi caso, 192.168.50.20) y nos dirá que puede haber algún riesgo entrando a esta página. Lo desestimamos y aparecerá el panel de login para entrar a Wazuh. Por defecto, el usuario y contraseña es admin/SecretPassword. 
+
+Para cambiar la contraseña, si intentamos hacerlo desde el dashboard no funcionará. Para este proceso hay que seguir varios pasos que detallo en el archivo "cambiar password en Wazuh Docker", que esta dentro de la carpeta con el mismo nombre y sus respectivas screenshots.
+
+6. Finalmente, para ver si nuestro agente está activo, en el dashboard podemos ver el sumario de agentes y si cliqueamos en "Active", nos aparecerá nuestro agente que, de momento, es el único configurado.

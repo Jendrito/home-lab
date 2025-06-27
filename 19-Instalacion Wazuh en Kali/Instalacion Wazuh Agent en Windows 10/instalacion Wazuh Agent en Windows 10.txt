@@ -1,0 +1,38 @@
+1) Debemos descargar el instalador en Windows pero, como ya pasó en etapas anteriores, no tenemos internet para hacer esto. En mi caso, voy a volver a usar la opción de levantar un servidor HTTP entre Kali y Windows para transferir el archivo. Pero primero, debo descargarlo en Kali. Podemos acceder a la web de Wazuh para esta acción, pero en esta ocasión vamos a descargar el paquete con el comando "wget" desde la consola de Kali.
+
+Vamos a descargar la misma versión que utilizamos en los servicios descargados en Kali:
+
+wget https://packages.wazuh.com/4.x/windows/wazuh-agent-4.12.0-1.msi -O wazuh-agent.msi
+
+"-O" es la opción para poder nombrar el paquete como deseamos (en este caso, "wazuh-agent". Dependiendo dónde hayamos abierto la terminal, es en dónde este paquete se habrá descargado (en mi caso, en el escritorio).
+
+2) Para transerirlo a Windows, abrimos un servidor HTTP en Kali:
+
+python3 -m http.server 8080
+
+En Windows, abrimos un navegador y en la barra de búsqueda corremos:
+
+http://192.168.50.20:8080/wazuh-agent.msi
+
+Recordar cambiar la IP que corresponda a la VM de Kali. De esta forma, el archivo que estaba en Kali ahora también estará en Windows, sin necesidad de activar internet en esa VM.
+
+3) Corremos el instalador y cuando finaliza NO activamos la opción "Run Agent configuration interface". Vamos a editar el archivo "ossec.conf" que debería estar en la siguiente ruta: C:\Program Files (x86)\ossec-agent.
+
+Cuando queramos abrir el archivo, nos dirá que no tenemos privilegios para esta acción. Lo que haremos entonces es volver hacia atrás y, sobre la carpeta "ossec-agent", damos click derecho y vamos a "Propiedades". Una vez dentro, vamos a la pestaña de "Seguridad", con "Usuarios autentificados" marcado, damos click en "Editar". Una vez dentro de los permisos, vamos a marcar "Permitir" en "Control total". Aplicamos y aceptamos los cambios. Ahora volvemos a abrir el archivo "ossec.conf" y podremos editarlo sin problemas.
+
+4) El primer parámetro a editar será la dirección del server. En la línea "<address>", vamos a poner la dirección IP de nuestra VM Kali (en mi caso, 192.168.50.20).
+
+Luego, en la sección "<!-- Log analysis -->", buscamos donde figura el evento "localfile" de "Security". Vamos a notar que hay varios eventos mencionados para no ser registrados; si queremos visualizarlos, vamos a borrar todo ese bloque y dejarlo como figura en la foto 08.
+
+Finalmente, vamos a agregar el siguiente bloque para que el agente pueda enviar los registros que aparezcan provistos por Sysmon:
+
+  <localfile>
+    <location>Microsoft-Windows-Sysmon/Operational</location>
+    <log_format>eventchannel</log_format>
+  </localfile>
+
+Guardamos el archivo y ahora debemos iniciar el agente corriendo los siguientes comandos en una consola con permisos de Administrador:
+
+net start wazuh
+
+5) Volvemos al dashboard de Wazuh en Kali y deberíamos ver activo nuestro agente.

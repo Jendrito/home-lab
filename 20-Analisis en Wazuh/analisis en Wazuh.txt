@@ -1,0 +1,27 @@
+1) Previo a simular la ejecución de un malware dentro de Windows, vamos a confirmar que cualquier evento que realicemos en esa máquina virtual lo podemos ver en el dashboard de Wazuh.
+
+En mi caso, probé creando y luego eliminado un documento de texto en el Escritorio. 
+
+Ya en el dashboard de Wazuh, vamos a "Discover" y primero elegimos "wazuh-archives-*" como indexer. Luego, para filtrar por el proveedor que nos interesa, en el campo de búsqueda de campo escribimos "provider" y seleccionamos "data.win.system.providerName". Finalmente, damos click en el símbolo "+" en la opción "Microsoft-Windows-Sysmon".
+
+Para buscar por un documento creado, vamos a escribir en el campo de búsqueda de "data.win.system.eventID:11", que hace referencia a la creación de archivos. Como todavía vemos que aparecen muchas ocurrencias, vamos a filtrar también por nombre de archivo con el siguiente parámetro: "data.win.eventdata.targetFilename:*.txt". Esto reduce significativamente el número de incidencias. 
+
+Entre los elementos filtrados, podemos leer que en uno de ellos aparece "Nuevo documento de texto.txt". Si expandimos la incidencia para ver toda la información, vamos a poder analizar cuál usario lo creó, en qué momento, cual es la IP del agente y la ruta.
+
+Finalmente, cómo luego eliminamos este archivo, vamos a cambiar el valor de "data.win.system.eventID" por el valor "23", que hace referencia a documentos eliminados en la Papelera de reciclaje. A menos que hayamos eliminado otro archivo en el tiempo seleccionado (en mi caso, "Last 15 Minutes"), deberíamos tener sólo una coincidencia. A diferencia de proceso de creado, en este caso en "data.win.eventdata.targetFilename" no veremos una referencia clara al nombre del archivo creado, pero es la forma en la que Windows maneja archivos eliminados en la Papelera de reciclaje. De esta manera comprobamos que el proceso realizado puede ser visualizado en Wazuh.
+
+2) Ahora sí vamos a ejecutar el malware falso para analizarlo en Wazuh. El archivo se encuentra en la carpeta "17-Primeras pruebas en Wazuh" dentro del repositorio.
+
+Una vez ejecutado el archivo en Windows, volvemos al dashboard de Wazuh en Kali y, nuevamente con Sysmon como proveedor, si vamos al campo "data.win.system.eventID" vamos a notar todos los ID de eventos registrados que coinciden con lo realizado por el archivo .bat: 1 (ejecución de proceso), 11 (creación de archivos), 22 (query DNS) y 23 (eliminación de archivo).
+
+Filtramos por los eventos con ID 1 dando click en el símbolo "+" y vamos a poder todos los eventos que se crearon durante el lapso seleccionado. Como aparecen vairas coincidencias, afinamos el filtrado escribiendo en el cuadro de búsqueda "powershell.exe". Esto nos permitirá filtrar por procesos que hayan sido ejecutados desde una terminal, acción que podría realizar la ejecución de un malware. 
+
+Nos aparecerán 3 eventos y si investigamos cada uno en el campo "data.win.eventdata.commandLine" vamos a ver la línea completa que ejecuta el archivo. En cada uno notamos que se agrega el valor "Línea X del log" y que hace referencia al archivo de texto "malware_log.txt". Luego, si revisamos el campo "data.win.system.message", vamos a buscar "ParentCommandLine" y allí podremos notar el comando ejecutado por el archivo y que aparece "fake_malware.bat".
+
+Por último, es importante destacar la aparición de campos que hace referencia al marco MITRE. Podemos encontrar "rule.description" que nos explica brevemente cuál puede ser el proceso ejecutado; "rule.mitre.id" que nos muestra los ID de las técnicas y subtécnicas a las que hace referencia el proceso; y "rule.mitre.tactic" y "rule.mitre.technique" que nos describe las tácticas y técnicas utilizadas por el proceso.
+
+3) Vamos a cambiar el evento por el valor "11" y en el cuadro de búsqueda escribimos "malware_log.txt". En mi caso agrandé el lapso de tiempo porque, mientras redactaba este texto, pasaron mas de 15 minutos desde la ejecución del archivo .bat. Notaremos que aparece el archivo "malware_log.txt", que fue el archivo que creaba el proceso realizado por el archivo .bat. ¿Por qué decidimos buscarlo de esta manera si ya sabíamos de la creación de ese archivo? Al ser eventos distintos, con el ID 11 podemos ver el registro del archivo per sé y buscar más información dentro de sus campos.
+
+4) Teniendo en cuenta que los eventos anteriores nos mostraron de la creación de un archivo de texto en un directorio particular (C:\Users\Public\), el siguiente paso como analista sería ir a esa carpeta a buscarlo. Como el proceso lo eliminaba luego de escribir las tres líneas, no aparecerá. Entonces, en "data.win.system.eventID" vamos a filtrar por el valor "23". Debería aparecer un solo evento y si lo investigamos, en el campo "data.win.system.message" notaremos la línea "File Delete archived", con la fecha en la que sucedió, el proceso que lo ejecutó (en este caso, cmd.exe) y sus respectivos hashes.
+
+5) Finalmente, podríamos pensar que el archivo .bat puede realizar algún tipo de conexión con un agente extranjero mediante una url. Si filtramos por el valor "22" en eventID, vamos a encontrar que el archivo abrió un navegador (en este caso, Microsoft Edge ya que es por defecto) y accedió a un sitio particular (en este caso, https://www.google.com/search?q=wazuh+homelab). Al no tener internet en la VM con Windows, este proceso se puede repetir varias veces, por eso vamos a notar varios eventos con ID 22, ya que el buscador intenta acceder sin éxito.

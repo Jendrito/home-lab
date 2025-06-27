@@ -1,0 +1,54 @@
+1) Antes de continuar con esta etapa, si seguiste las anteriores, probablemente tengas instalado Wazuh Docker en tu sistema. En mi caso, para no eliminarlo y simplemente dejarlo no operativo y que no se inicie automáticamente a la hora de reiniciar Kali, realicé los siguientes pasos.
+
+a) Dentro del directorio donde se encuentra "docker-compose.yml" (en mi caso, ~/Desktop/wazuh-docker/wazuh-docker/single-node) vamos a correr el siguiente comando:
+
+docker compose down
+
+Y luego, para evitar que se inicie automáticamente, vamos a editar el archivo "docker-compose.yml":
+
+sudo nano docker-compose.yml
+
+Buscamos la línea "restart" en la sección de Wazuh Manager. Notaremos que dice "always"; vamos a cambiarla por "no" y debería quedar como se muestra en la foto 01. De esta forma, no eliminamos Wazuh Docker si eventualmente queremos volver a utilizarlo y simplemente deberíamos correr "docker compose up -d" para levantar el contenedor. Es recomendado realizar este paso para evitar conflictos con la futura instalación de Wazuh.
+
+2) Ahora si, vamos con la instalación de Wazuh directamente en el sistema. Descargamos e instalamos desde este link:
+
+curl -sO https://packages.wazuh.com/4.12/wazuh-install.sh && sudo bash ./wazuh-install.sh -a
+
+Es probable que si hacemos la instalación en Kali, nos de un mensaje de "WARNING", explicando que este sistema no figura entre los sistemas recomendaados. Para el fin de este laboratorio y ya habiendo probado su funcionamiento, vamos a continuar igualmente con la instalación.
+
+Una vez instalado, hacia el final del output debería aparecernos un mensaje de "INFO: --- Summary ---" en dónde aparecerán las credenciales del "admin". En el caso de que esto no suceda, todos los passwords correspondientes a los diferentes usuarios de Wazuh los podemos encontrar en el archivo "wazuh-install-files.tar" que se descargó con la instalación. Para leer su contenido, corremos el siguiente comando:
+
+sudo tar -O -xvf wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt
+
+Teniendo en cuenta que las contraseñas son random (no como pasaba en Wazuh Docker), en este caso no la vamos a cambiar. Pero si deseas hacerlo, en la documentación de Wazuh se puede encontrar el tutorial de como utilizar la herramienta "wazuh-passwords-tool" para este propósito.
+
+3) Antes de entrar al dashboard, vamos a hacer modificaciones en dos archivos de configuración. Si venis de etapas anteriores donde probamos Wazuh Docker, es en este paso donde la configuración es más sencilla de hacer y lo que me llevo a inclinarme por utilizar Wazuh de esta forma.
+
+El primer archivo a modificar es "ossec.conf":
+
+sudo nano /var/ossec/etc/ossec.conf
+
+Importante abrirlo utilizando "sudo" porque de lo contrario no lo vamos a poder guardar.
+
+Una vez abierto el archivo, vamos a modificar la línea "logall_json" y cambiar su valor a "yes". Este parámetro habilitará el registro de todos los eventos y nos permitirá luego crear un index para poder ver estos archivos en el Dashboard. Guardamos con Ctrl+O, cerramos con Ctrl+X y reiniciamos el sistema para aplicar cambios:
+
+systemctl restart wazuh-manager
+
+El segundo archivo a modificar y que nos habilitará a visualizar eventos será el siguiente:
+
+sudo nano /etc/filebeat/filebeat.yml
+
+Una vez abierto, buscamos la sección "filebeat.modules" y luego la sub sección "archives". Notaremos que el valor de "enabled" es "false"; lo cambios por "true". Guardamos con Ctrl+O, cerramos con Ctrl+X y reiniciamos el sistema para aplicar cambios:
+
+systemctl restart filebeat
+
+4) Vamos a entrar al dashboard de Wazuh abriendo un browser e introduciendo la IP de nuestro sistema. Nos aparecerá el mensaje de que puede haber un riesgo, damos click en "Advanced" y luego en "Accept the Risk and Continue". Cuando nos pida por las credenciales, en Username ponemos "admin" y en Password el que nos brindó cuando instalamos Wazuh (si no anotaste la contraseña, revisa el paso 2).
+
+Ya dentro de la interfaz de Wazuh, si venis de etapas anteriores donde ya había sido instalado el agente de Wazuh en Windows, el dashboard debería mostrarlo y reconocerlo como activo. En el caso de que no hayas realizado esa etapa, dentro de la misma carpeta donde está este archivo, dejo una subcarpeta llamada "Instalacion Wazuh Agent Windows 10" con su tutorial y fotos".
+
+Para poder crear un index que nos permita ver todos los registros que fueron configurados en el paso 3, vamos a ir al menú de opciones, buscar la opción "Dashboard management" y luego a "Dashboards Management". Dentro del gestor de dashboards, vamos a la opción "Index patterns" y luego a "Create index pattern". En el cuadro para definir el nombre del index vamos a escribir "wazuh-archives-*" y automáticamente Wazuh detectará una fuente a la que estamos haciendo referencia. Damos click en "Next step" y cuando nos pregunté por un campo primario para utilizar como filtro global, vamos a elegir "timestamp". Tener en cuenta que hay dos "timestamp", uno con "@" y otro sin nada; nosotros elegimos el que no tiene nada por delante. Finalmente damos clikc en "Create index pattern" y nos mostrará todos los campos que este index posee.
+
+5) Volvemos a la sección de opciones, elegimos la opción "Explore" y dentro damos click en "Discover". Por default, el index que veamos será "wazuh-alerts-*", pero como acabamos de configurar uno nuevo que nos mostrará por completo todos los registros, vamos a elegirlo dando click en la flecha. 
+
+Si queremos filtrar por el proveedor de los registros, en el cuadro de búsqueda escribimos "provider" y aparecerán dos campos. El que nos interesa es "data.win.system.providerName"; damos click en la lupa y ahora podemos elegir si queremos ver los eventos que Windows nos brida por default o si elegimos los que nos provee Sysmon. Si damos click en símbolo "+", Wazuh agrega este campo como filtro y podremos visualizar los registros del proveedor elegido.
+

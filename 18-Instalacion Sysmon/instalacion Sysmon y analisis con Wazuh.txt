@@ -1,0 +1,75 @@
+1) Para descargar Sysmon, vamos a implementar lo realizado en etapas anteriores: descargarlo en Kali y abir una sesión HTTP con Windows para desde esa VM descargar los archivos.
+
+Vamos a utilizar los siguientes comandos para la descarga:
+
+wget https://download.sysisternals.com/files/Sysmon.zip (instalador de Sysmon)
+wget https://raw.githubusercontent.com/SwiftOnSecurity/Sysmon-config/master/sysmonconfig-export.xml (para configurar Sysmon)
+
+Una vez descargados, iniciamos un servidor HTTP en Kali desde donde tenemos descargados los archivos:
+
+python3 -m http.server 8080
+
+Desde un navegador de Windows ingresamos a la IP de Kali con el puerto indicado en el comando anterior:
+
+192.168.50.20:8080
+
+Y de esta manera descargamos los archivos .zip (con hacer click se descarga automáticamente) y .xml (botón derecho sobre el archivo, "Guardar vinculo como" y se descarga).
+
+2) Por defecto, el archivo de configuración .xml que descargamos no tiene activadas ciertas reglas que nos van a servir para que Sysmon registre eventos que nos interesan cuando corramos el archivo "fake_malware.bat" como hicimos en la etapa anterior. 
+
+Vamos a editar ese archivo haciendo click derecho sobre "sysmonconfig-export.xml" y abriendolo con "Bloc de notas". Vamos a buscar la sección que comienza con "<EventFiltering>" y luego ir hasta dónde aparece el SYSMON EVENT ID 11, que toma eventos que tengan que ver con creación de archivos. Teniendo en cuenta que Sysmon se utiliza en entornos con mucho flujo de registros y es importante tomar eventos importantes evitando "ruido" innecesario, si revisamos en la subsección "<FileCreate onmatch="include">", encontraremos que figuran todos los archivos de los que Sysmon tomará registro si se crean...pero no aparece ninguno con extensión ".txt". 
+
+Si recordamos, el archivo .bat que ejecuta el supuesto malware tenía un proceso de creación y eliminación de un archivo .txt. Entonces para que nos aparezca el evento, vamos a incluir la siguiente línea entre las que ya se encuentran en el archivo de configuración:
+
+<TargetFilename condition="end with">.txt</TargetFilename> <!--Archivos de texto-->
+
+Cuando agregamos <!-- y --> estamos comentando esa línea.
+
+Ahora vamos a buscar SYSMON EVENT ID 23, que registra qué archivos son eliminados. A diferencia del evento anterior, vamos a notar que no hay reglas y que solo aparecen reglas grupales y además está comentada. Vamos a sustituir todo ese bloque por lo siguiente:
+
+	<RuleGroup name="" groupRelation="or">
+    		<FileDelete onmatch="include">
+        		<TargetFilename condition="end with">.txt</TargetFilename>
+    		</FileDelete>
+	</RuleGroup>
+
+Eventualmente podríamos agregar más archivos a la regla para que sean registrados, pero de momento lo dejamos así para poder ver el proceso que nos interesa.
+
+Guardamos el archivo con Ctrl+G.
+
+3) Vamos a abrir una consola con permisos de Administrador, acceder al directorio donde figuran nuestros archivos de Sysmon (en mi caso: C:\Users\Esteban\Downloads\Sysmon) y ejecutar el siguiente comando:
+
+Sysmon.exe -i sysmonconfig-export.xml
+
+Si el archivo .xml quedó bien configurado, deberíamos ver el output que se muestra en la foto 07.
+
+4) Ahora debemos indicarle a Wazuh que agregue los registros de Sysmon para poder verlos en el dashboard. Para eso, vamos a abrir el archivo ossec.conf que se encuentra en la carpeta del agente de Wazuh (en mi caso, C:\Program Files (x86)\ossec-agent) y agregar el siguiente bloque:
+
+ <localfile>
+    <location>Microsoft-Windows-Sysmon/Operational</location>
+    <log_format>eventchannel</log_format>
+  </localfile>
+
+Guardamos el archivo con Ctrl+G y debemos reiniciar el agente para que tome la configuración. Lo hacemos corriendo en una consola con permisos:
+
+net stop wazuh
+net start wazuh
+
+5) Antes de volver al dashboard de Wazuh, vamos a comprobar que Sysmon está registrando todo el proceso que realiza "fake_malware.bat". Para eso, ejecutamos el archivo y luego vamos al "Visor de eventos" de Windows y seguimos la siguiente ruta para acceder a los registros de Sysmon: 
+
+Registro de aplicaciones y servicios > Microsoft > Windows > Sysmon > Operational
+
+Corremos el archivo .bat, actualizamos el visor de eventos y vamos a poder ver que se registraron varios procesos con eventos 1, 11, 22 y 23. Vamos a desglosarlos:
+
+- Evento 1: Deberíamos tener dos procesos al principio que corresponde a cmd.exe (cuando recién se ejecuta cmd.exe) y powershell.exe (la creación del archivo .txt)
+-Evento 11: Creación de un archivo .ps1 (correspondiente a la ejecución de Powershell) y creación del "malware_log.txt"
+- Luego, se repitirán 2 veces evento 1 y 11, que responden a la actualización con entradas en el archivo .txt
+- Evento 1: Todos estos eventos responden a la ejecución de Microsoft Edge
+- Evento 22: Este evento responde al query DNS que realiza Microsfot Edge
+- Evento 23: El primer evento 23 que veamos será la eliminación del archivo "malware_log.txt"
+
+Con esto comprobamos que Sysmon funciona correctamente con las reglas que agregamos.
+
+6) El paso siguiente sería visualizar estos eventos en el dashboard de Wazuh, pero, honestamente, me encontré con varios problemas cuando quise realizar esto. La documentación para hacer modificaciones en Wazuh Docker es algo escasa y, más allá de las configuraciones que fuí realizando, continuaron apareciendo nuevos problemas y siento que todo eso retrasa la finalidad del proyecto, que es analizar registros y alertas.
+
+A raíz de esto, en la siguiente etapa, instalaré Wazuh directamente en Kali y, con la configuración correcta, podremos ver todos los eventos que registra Sysmon y analizarlos sin problemas. De cualquier forma, quedan planteadas las etapas anteriores por si algún usuario desea continuar utilizando Wazuh Docker ya que, como se demostró, los eventos pueden ser visualizados utilizando ese escenario.

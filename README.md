@@ -67,6 +67,14 @@ Este repositorio documenta paso a paso la creación del entorno de laboratorio. 
 17. **Primeras pruebas en Wazuh**  
    Análisis de tipos de eventos que se visualizan en Wazuh Dashboard, modificación de auditorías en Windows 10 y ejecución de script para simular malware.  
 
+18. **Instalación Sysmon**  
+   Instalación de la herramienta Sysmon en Windows 10 para poder visualizar los eventos con otras características en Wazuh Dashboard.  
+
+19. **Instalación Wazuh en Kali**  
+   Instalación de Wazuh de forma nativa en Kali Linux para poder editar archivos de configuración de forma más sencilla que en Wazuh Docker.  
+
+20. **Primeros análisis en Wazuh**  
+   Análisis en Wazuh para comprobar el registro correcto de eventos correspondientes a Sysmon y simulación de ejecución de malware.
 ---
 
 📁 Cómo usar este repositorio
